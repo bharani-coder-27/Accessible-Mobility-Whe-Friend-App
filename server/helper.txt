@@ -1,0 +1,25 @@
+server/
+│  package.json
+│  server.js
+│  .env
+└── src/
+    ├── app.js
+    ├── config/
+    │    └── db.js
+    ├── controllers/
+    │    ├── authController.js
+    │    ├── busController.js
+    │    └── notifyController.js
+    ├── models/
+    │    ├── userModel.js
+    │    ├── busModel.js
+    │    └── notificationModel.js
+    ├── routes/
+    │    ├── authRoutes.js
+    │    ├── busRoutes.js
+    │    └── notifyRoutes.js
+    ├── middleware/
+    │    ├── authMiddleware.js
+    │    └── errorHandler.js
+    └── utils/
+         └── sendNotification.js

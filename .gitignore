@@ -1,0 +1,78 @@
+# ========================================================
+# Node.js / Backend
+# ========================================================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+.env
+.env.local
+.env.*.local
+
+# Logs
+logs
+*.log
+*.out
+*.pid
+*.seed
+*.pid.lock
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage directory (from Jest, Istanbul etc.)
+coverage/
+.nyc_output/
+
+# ========================================================
+# React Native / Expo
+# ========================================================
+# Expo
+.expo/
+.expo-shared/
+
+# React Native
+android/
+ios/
+web-build/
+dist/
+build/
+
+# Metro bundler cache
+.expo/*
+.expo-shared/*
+.expo2/
+
+# React Native Debugger / Cache
+*.packager
+*.iml
+*.hprof
+*.orig
+*.rej
+
+# IDEs and editors
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# ========================================================
+# OS-specific files
+# ========================================================
+.DS_Store
+Thumbs.db
+
+# ========================================================
+# Miscellaneous
+# ========================================================
+*.local
+*.bak
+*.tmp
+*.log
