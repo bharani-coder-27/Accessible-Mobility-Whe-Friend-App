@@ -46,7 +46,7 @@ interface AuthContextType {
 }
 
 // Your Google Maps API key
-const API_KEY = "AIzaSyB7eC-j0tdLxX6-xAoHApv68JrEXA-j4lo";
+const API_KEY = "GOOGLE_MAPS_API_KEY";
 
 export default function PassengerHomeScreen() {
   const { logout, user } = useContext(AuthContext) as AuthContextType;
