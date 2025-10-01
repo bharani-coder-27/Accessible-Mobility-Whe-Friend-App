@@ -1,32 +1,38 @@
-/* import React from 'react';
-import { StyleSheet, View } from 'react-native';
-import MapView, { PROVIDER_GOOGLE } from 'react-native-maps';
+/* import React from "react";
+import { StyleSheet, View } from "react-native";
+import MapView, { Marker } from "react-native-maps";
 
-export default function App() {
+export default function MapScreen() {
   return (
     <View style={styles.container}>
       <MapView
-        provider={PROVIDER_GOOGLE} // Use Google Maps
         style={styles.map}
         initialRegion={{
-          latitude: 37.78825,
-          longitude: -122.4324,
-          latitudeDelta: 0.0922,
-          longitudeDelta: 0.0421,
+          latitude: 11.0168,     // Example: Coimbatore, India
+          longitude: 76.9558,
+          latitudeDelta: 0.05,
+          longitudeDelta: 0.05,
         }}
-      />
+        provider="google"  // Forces Google Maps provider
+      >
+        <Marker
+          coordinate={{ latitude: 11.0168, longitude: 76.9558 }}
+          title="My Location"
+          description="This is a marker in Coimbatore"
+        />
+      </MapView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  map: { flex: 1 },
+  container: {
+    flex: 1,
+  },
+  map: {
+    flex: 1,
+  },
 }); */
-
-
-
-
 
 
 import { Redirect } from "expo-router";
@@ -45,13 +51,9 @@ export default function Index() {
     );
   }
 
-  if (!user) {
-    return <Redirect href="/Auth/LoginScreen" />;
-  }
+  if (!user) return <Redirect href="/Auth/LoginScreen" />;
 
-  if (user.role === "passenger") {
-    return <Redirect href="/Passenger/PassengerHomeScreen" />;
-  }
-
-  return <Redirect href="/Conductor/ConductorHomeScreen" />;
+  // Correct paths
+  if (user.role === "passenger") return <Redirect href="/Passenger" />;
+  return <Redirect href="/Conductor/waiting" />;
 }

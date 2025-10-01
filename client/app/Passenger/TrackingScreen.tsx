@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, Button, StyleSheet, Alert } from 'react-native';
+import { View, Text, Button, StyleSheet, Alert, TouchableOpacity } from 'react-native';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import * as Location from 'expo-location';
-import { useLocalSearchParams } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import axios from 'axios';
+import { MaterialIcons } from '@expo/vector-icons';
 
 interface Coordinates {
   latitude: number;
@@ -11,7 +12,14 @@ interface Coordinates {
 }
 
 const TrackingScreen: React.FC = () => {
+  const router = useRouter();
   const { destLat, destLng, fromLat, fromLng } = useLocalSearchParams();
+
+  console.log(fromLat);
+  console.log(fromLng);
+  console.log(destLat);
+  console.log(destLng);
+  
   const parsedDestLat = typeof destLat === 'string' ? parseFloat(destLat) : NaN;
   const parsedDestLng = typeof destLng === 'string' ? parseFloat(destLng) : NaN;
   const parsedFromLat = typeof fromLat === 'string' ? parseFloat(fromLat) : NaN;
@@ -220,6 +228,7 @@ const TrackingScreen: React.FC = () => {
       console.log('Stopping location tracking');
       watchId.current.remove();
       watchId.current = null;
+      router.back();
     }
   };
 
@@ -246,6 +255,38 @@ const TrackingScreen: React.FC = () => {
 
   return (
     <View style={styles.container}>
+      <View
+        style={{
+          height: 80,
+          flexDirection: "row",
+          alignItems: "center",
+          paddingHorizontal: 20,
+          backgroundColor: "#fff",
+          paddingTop: 30,
+        }}
+      >
+        <View
+          style={{
+            justifyContent: "flex-start",
+            flexDirection: "row",
+            alignItems: "center",
+          }}
+        >
+          <TouchableOpacity onPress={() => router.back()}>
+            <MaterialIcons name="arrow-back" size={24} color="#000" />
+          </TouchableOpacity>
+          <Text
+            style={{
+              fontSize: 22,
+              fontWeight: "bold",
+              letterSpacing: 1,
+              marginLeft: 10,
+            }}
+          >
+            Bus Stops
+          </Text>
+        </View>
+      </View>
       {!isValidCoordinates ? (
         <Text style={styles.errorText}>Invalid destination coordinates provided.</Text>
       ) : hasPermission ? (

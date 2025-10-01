@@ -42,9 +42,9 @@ export default function LoginScreen() {
       const { user, token } = response.data;
       await login(user, token);
       if (user.role === "conductor") {
-        router.push("/Conductor/ConductorHomeScreen");
+        router.push("./Conductor/waiting");
       } else {
-        router.push("/Passenger/PassengerHomeScreen");
+        router.push("./Passenger");
       }
     } catch (error) {
       console.error("Login error:", error);
@@ -63,6 +63,7 @@ export default function LoginScreen() {
         placeholder="Email Address"
         value={email}
         onChangeText={setEmail}
+        placeholderTextColor="#000"
         keyboardType="email-address"
         autoCapitalize="none"
       />
@@ -71,6 +72,7 @@ export default function LoginScreen() {
         placeholder="Password"
         value={password}
         onChangeText={setPassword}
+        placeholderTextColor="#000"
         secureTextEntry
         autoCapitalize="none"
       />

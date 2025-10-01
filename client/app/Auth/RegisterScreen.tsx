@@ -150,6 +150,7 @@ export default function RegisterScreen() {
         style={styles.input}
         placeholder="Full Name"
         value={name}
+        placeholderTextColor="#000"
         onChangeText={setName}
         autoCapitalize="words"
       />
@@ -157,6 +158,7 @@ export default function RegisterScreen() {
         style={styles.input}
         placeholder="Phone Number (10 digits)"
         value={phoneNumber}
+        placeholderTextColor="#000"
         onChangeText={setPhoneNumber}
         keyboardType="phone-pad"
       />
@@ -165,6 +167,7 @@ export default function RegisterScreen() {
           style={styles.inputWithIcon}
           placeholder="Date of Birth (YYYY-MM-DD)"
           value={dob}
+          placeholderTextColor="#000"
           editable={false}
         />
         <FontAwesome name="calendar" size={20} color="#2c3e50" style={styles.icon} />
@@ -180,6 +183,7 @@ export default function RegisterScreen() {
         style={styles.input}
         placeholder="Email Address"
         value={email}
+        placeholderTextColor="#000"
         onChangeText={setEmail}
         keyboardType="email-address"
         autoCapitalize="none"
@@ -189,6 +193,7 @@ export default function RegisterScreen() {
           style={styles.inputWithIcon}
           placeholder="Password"
           value={password}
+          placeholderTextColor="#000"
           onChangeText={setPassword}
           secureTextEntry={!showPassword}
           autoCapitalize="none"
@@ -202,6 +207,7 @@ export default function RegisterScreen() {
           style={styles.inputWithIcon}
           placeholder="Confirm Password"
           value={confirmPassword}
+          placeholderTextColor="#000"
           onChangeText={setConfirmPassword}
           secureTextEntry={!showConfirmPassword}
           autoCapitalize="none"
@@ -217,6 +223,7 @@ export default function RegisterScreen() {
             style={styles.input}
             placeholder="From (e.g., Madukkarai)"
             value={from}
+            placeholderTextColor="#000"
             onChangeText={setFrom}
             autoCapitalize="words"
           />
@@ -224,6 +231,7 @@ export default function RegisterScreen() {
             style={styles.input}
             placeholder="To (e.g., Saibaba Colony)"
             value={to}
+            placeholderTextColor="#000"
             onChangeText={setTo}
             autoCapitalize="words"
           />
@@ -231,6 +239,7 @@ export default function RegisterScreen() {
             style={styles.input}
             placeholder="Trip Code (e.g., 3B)"
             value={tripCode}
+            placeholderTextColor="#000"
             onChangeText={setTripCode}
             autoCapitalize="none"
           />
@@ -238,6 +247,7 @@ export default function RegisterScreen() {
             style={styles.input}
             placeholder="Class of Service (e.g., Low Floor Bus)"
             value={classOfService}
+            placeholderTextColor="#000"
             onChangeText={setClassOfService}
             autoCapitalize="words"
           />
@@ -245,6 +255,7 @@ export default function RegisterScreen() {
             style={styles.input}
             placeholder="Device ID (e.g., MGR976883094)"
             value={deviceId}
+            placeholderTextColor="#000"
             onChangeText={setDeviceId}
             autoCapitalize="none"
           />
@@ -292,6 +303,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     backgroundColor: "#fff",
     fontSize: 16,
+    color: '#000',
     shadowColor: "#000",
     shadowOpacity: 0.15,
     shadowRadius: 8,

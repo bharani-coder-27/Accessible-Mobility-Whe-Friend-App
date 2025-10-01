@@ -1,30 +1,31 @@
+// // app/_layout.tsx
+// import React from "react";
+// import { Stack } from "expo-router";
+// import { SafeAreaView, StatusBar } from "react-native";
+
+// export default function RootLayout() {
+//   return (
+//     <SafeAreaView style={{ flex: 1, backgroundColor: "#fff" }}>
+//       <StatusBar barStyle="dark-content" />
+//       <Stack
+//         screenOptions={{
+//           headerStyle: { backgroundColor: "#6200EE" },
+//           headerTintColor: "#fff",
+//           headerTitleStyle: { fontWeight: "bold" },
+//         }}
+//       />
+//     </SafeAreaView>
+//   );
+// }
+
+
 // app/_layout.tsx
-/* import React from "react";
-import { Stack } from "expo-router";
-import { SafeAreaView, StatusBar } from "react-native";
-
-export default function RootLayout() {
-  return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#fff" }}>
-      <StatusBar barStyle="dark-content" />
-      <Stack
-        screenOptions={{
-          headerStyle: { backgroundColor: "#6200EE" },
-          headerTintColor: "#fff",
-          headerTitleStyle: { fontWeight: "bold" },
-        }}
-      />
-    </SafeAreaView>
-  );
-}
-
- */
-
-
 import React, { useContext, useEffect } from "react";
 import { Stack, useRouter, useSegments } from "expo-router";
 import { AuthProvider, AuthContext } from "../src/contexts/AuthContext";
 import { ActivityIndicator, View } from "react-native";
+import { GestureHandlerRootView } from "react-native-gesture-handler"; // <-- import this
+import Toast from 'react-native-toast-message';
 
 function RootNavigator() {
   const { user, loading } = useContext(AuthContext);
@@ -39,9 +40,9 @@ function RootNavigator() {
       router.replace("/Auth/LoginScreen");
     } else if (user && inAuthGroup) {
       if (user.role === "passenger") {
-        router.replace("/Passenger/PassengerHomeScreen");
+        router.replace("/Passenger");
       } else {
-        router.replace("/Conductor/ConductorHomeScreen");
+        router.replace("/Conductor/waiting");
       }
     }
   }, [user, segments, loading, router]);
@@ -59,8 +60,10 @@ function RootNavigator() {
 
 export default function RootLayout() {
   return (
-    <AuthProvider>
-      <RootNavigator />
-    </AuthProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <AuthProvider>
+        <RootNavigator />
+      </AuthProvider>
+    </GestureHandlerRootView>
   );
-}
+};
