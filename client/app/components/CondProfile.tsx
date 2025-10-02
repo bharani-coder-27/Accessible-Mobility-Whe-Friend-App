@@ -55,9 +55,7 @@ const CondProfile = () => {
           <Ionicons name="arrow-back" size={28} color="#fff" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Profile</Text>
-        <TouchableOpacity onPress={logout}>
-          <Image source={icons.logout} style={{ height: 25, width: 25}}/>
-        </TouchableOpacity>
+        <View style={{ width: 28 }} />
       </View>
 
       {/* Profile Content */}

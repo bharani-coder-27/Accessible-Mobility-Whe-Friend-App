@@ -5,18 +5,16 @@ import Header from '../components/Header';
 import { Image } from 'react-native';
 import { icons } from '../../constants/icons';
 import Toast from 'react-native-toast-message';
-import { io } from 'socket.io-client';
-import { AuthContext } from '../../src/contexts/AuthContext';
-
-//const socket = io("http://10.24.183.189:8801"); // replace with your IP
 
 export default function ConductorTabsLayout() {
 
   return (
     <PassengerProvider>
+      {/* ✅ Header is now global (outside Tabs) */}
+      <Header title="Dashboard" />
       <Tabs
         screenOptions={{
-          header: () => <Header title="Dashboard" />,
+          headerShown: false,
           tabBarLabelStyle: { fontSize: 12, fontWeight: 'bold' },
           tabBarActiveTintColor: '#624be4ff',
           tabBarInactiveTintColor: '#444444ff',

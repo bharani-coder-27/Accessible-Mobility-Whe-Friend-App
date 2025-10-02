@@ -1,6 +1,9 @@
 import React, { createContext, useState, useEffect, ReactNode } from "react";
 import { router } from "expo-router";
 import { getFromStorage, saveToStorage, removeFromStorage } from "../utils/storage";
+import { registerForPushNotificationsAsync } from "../utils/notifications";
+import api from "../services/api";
+
 
 type User = {
   id: string; // Keep as string to match your existing code
@@ -57,6 +60,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     try {
       await saveToStorage("token", token);
       await saveToStorage("user", userData);
+
+      const expoPushToken = await registerForPushNotificationsAsync();
+      console.log("Push notification token:", expoPushToken);
+      // Optionally, send the expoPushToken to your backend here
+
+      if (expoPushToken) {
+        await api.post("/notify/savePushToken", {
+          user_id: userData.id,
+          expo_push_token: expoPushToken,
+        }); // Adjust endpoint as needed
+      }
+
       setUser(userData);
       setToken(token);
       
