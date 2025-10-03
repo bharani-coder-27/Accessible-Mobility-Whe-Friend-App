@@ -37,7 +37,7 @@ coverage/
 .expo-shared/
 
 # React Native
-# android/
+android/
 ios/
 web-build/
 dist/
