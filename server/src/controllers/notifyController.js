@@ -1,7 +1,8 @@
 import {
   createNotification,
   getBusNotifications,
-  updateNotificationStatus
+  updateNotificationStatus,
+  savePushToken
 } from '../models/notifyModel.js';
 import jwt from 'jsonwebtoken';
 
@@ -76,3 +77,22 @@ export const updateNotificationStatusHandler = async (req, res) => {
     res.status(500).json({ error: 'Failed to update notification status' });
   }
 };
+
+export const savePushTokenHandler = async (req, res) => {
+  const { user_id, expo_push_token } = req.body;
+
+  if (!user_id || !expo_push_token) {
+    return res.status(400).json({ error: 'user_id and expo_push_token are required' });
+  }
+
+  try {
+    // Save the push token to the database or any storage
+    await savePushToken(user_id, expo_push_token);
+    res.status(200).json({ message: 'Push token saved successfully' });
+  } catch (err) {
+    console.error('Save push token error:', err);
+    res.status(500).json({ error: 'Failed to save push token' });
+  }
+};
+
+
