@@ -9,6 +9,7 @@ package-lock.json
 .env
 .env.local
 .env.*.local
+google-services-key.json
 
 # Logs
 logs
@@ -36,7 +37,7 @@ coverage/
 .expo-shared/
 
 # React Native
-android/
+# android/
 ios/
 web-build/
 dist/
