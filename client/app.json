@@ -22,7 +22,7 @@
         "foregroundImage": "./assets/images/logo-app.png",
         "backgroundColor": "#ffffff"
       },
-      "googleServicesFile": "GOOGLE_SERVICES_JSON", 
+      "googleServicesFile": "./android/app/google-services.json", 
       "edgeToEdgeEnabled": true,
       "config": {
         "googleMaps": {

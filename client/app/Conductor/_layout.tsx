@@ -57,9 +57,6 @@ export default function ConductorTabsLayout() {
           }}
         />
       </Tabs>
-
-      {/* Important — toast container must be inside the render tree */}
-      <Toast />
     </PassengerProvider>
   );
 }

@@ -1,47 +1,28 @@
-/* import React from "react";
-import { StyleSheet, View } from "react-native";
-import MapView, { Marker } from "react-native-maps";
-
-export default function MapScreen() {
-  return (
-    <View style={styles.container}>
-      <MapView
-        style={styles.map}
-        initialRegion={{
-          latitude: 11.0168,     // Example: Coimbatore, India
-          longitude: 76.9558,
-          latitudeDelta: 0.05,
-          longitudeDelta: 0.05,
-        }}
-        provider="google"  // Forces Google Maps provider
-      >
-        <Marker
-          coordinate={{ latitude: 11.0168, longitude: 76.9558 }}
-          title="My Location"
-          description="This is a marker in Coimbatore"
-        />
-      </MapView>
-    </View>
-  );
-}
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  map: {
-    flex: 1,
-  },
-}); */
-
-
 import { Redirect } from "expo-router";
-import { useContext } from "react";
+import { useContext, useEffect } from "react";
 import { AuthContext } from "../src/contexts/AuthContext";
 import { ActivityIndicator, View } from "react-native";
+import { setupNotificationHandler } from "../src/utils/notificationHandler";
+import * as Notifications from "expo-notifications";
 
 export default function Index() {
   const { user, loading } = useContext(AuthContext);
+
+  // Setup notification handler once when the app loads
+  useEffect(() => {
+    // 🔔 Configure foreground notifications (Step 1)
+    Notifications.setNotificationHandler({
+      handleNotification: async () => ({
+        shouldShowAlert: true, // Show alert popup inside the app
+        shouldPlaySound: true, // Play system notification sound
+        shouldSetBadge: true, // Show app badge count
+        shouldShowBanner: true, // 👈 Required in SDK 52+
+        shouldShowList: true, // 👈 Required in SDK 52+
+      }),
+    });
+
+    setupNotificationHandler();
+  }, []);
 
   if (loading) {
     return (

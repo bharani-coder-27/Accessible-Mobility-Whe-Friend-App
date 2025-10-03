@@ -63,6 +63,7 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <AuthProvider>
         <RootNavigator />
+          <Toast position="top" topOffset={20} /> 
       </AuthProvider>
     </GestureHandlerRootView>
   );

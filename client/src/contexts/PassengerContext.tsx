@@ -1,8 +1,14 @@
-import React, { createContext, ReactNode, useState, useEffect, useContext } from 'react';
-import api from '../services/api';
-import { AuthContext } from './AuthContext';
-import { io, Socket } from 'socket.io-client';
-import Toast from 'react-native-toast-message'; // optional toast popup
+import React, {
+  createContext,
+  ReactNode,
+  useState,
+  useEffect,
+  useContext,
+} from "react";
+import api from "../services/api";
+import { AuthContext } from "./AuthContext";
+import { io, Socket } from "socket.io-client";
+import Toast from "react-native-toast-message"; // optional toast popup
 
 // Notification type from backend
 export type Notification = {
@@ -11,7 +17,7 @@ export type Notification = {
   bus_stop_id: number;
   user_id: number;
   timing: string;
-  status: 'waiting' | 'traveling' | 'completed';
+  status: "waiting" | "traveling" | "completed";
   message: string;
   bus_stop_name: string;
   passenger_name: string;
@@ -41,39 +47,87 @@ export const PassengerProvider = ({ children }: { children: ReactNode }) => {
   const fetchPassengers = async () => {
     if (!user?.bus_id) return;
     try {
-      const res = await api.get<Passenger[]>(`/notify/conductor/${user.bus_id}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await api.get<Passenger[]>(
+        `/notify/conductor/${user.bus_id}`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
       setPassengers(res.data);
     } catch (err) {
-      console.error('Fetch passengers error:', err);
+      console.error("Fetch passengers error:", err);
       setPassengers([]);
     }
   };
 
   // 🔹 Update status from waiting -> traveling -> completed
+  // inside PassengerProvider in PassengerContext.tsx
+
   const updateStatus = async (id: number) => {
     try {
       const passenger = passengers.find((p) => p.id === id);
       if (!passenger) return;
 
-      let nextStatus: Passenger['status'];
-      if (passenger.status === 'waiting') nextStatus = 'traveling';
-      else if (passenger.status === 'traveling') nextStatus = 'completed';
-      else return;
+      // Determine the next action based on current status
+      if (passenger.status === "waiting") {
+        // ✅ Start travel → send push notification for confirmation
+        await api.post(
+          `/notify/startTravel`,
+          {
+            bus_id: passenger.bus_id,
+            user_id: passenger.user_id,
+          },
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
 
-      await api.put(
-        `/notify/markseen`,
-        { notification_id: id, bus_id: passenger.bus_id, status: nextStatus },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+        await api.put(
+          `/notify/markseen`,
+          { notification_id: id, bus_id: passenger.bus_id },
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
 
-      // Update locally
-      setPassengers((prev) =>
-        prev.map((p) => (p.id === id ? { ...p, status: nextStatus } : p))
-      );
+        Toast.show({
+          type: "info",
+          text1: "🚌 Travel Started",
+          text2: `Confirmation request sent to ${passenger.passenger_name}`,
+          position: "top",
+        });
+
+        // Locally update status to traveling
+        setPassengers((prev) =>
+          prev.map((p) => (p.id === id ? { ...p, status: "traveling" } : p))
+        );
+      } else if (passenger.status === "traveling") {
+        // ✅ Complete travel → send completion notification
+        await api.post(
+          `/notify/completeTravel`,
+          {
+            bus_id: passenger.bus_id,
+            user_id: passenger.user_id,
+          },
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+
+        Toast.show({
+          type: "success",
+          text1: "✅ Travel Completed",
+          text2: `${passenger.passenger_name} notified successfully`,
+          position: "top",
+        });
+
+        // Locally update status to completed
+        setPassengers((prev) =>
+          prev.map((p) => (p.id === id ? { ...p, status: "completed" } : p))
+        );
+      }
     } catch (err) {
-      console.error('Update status error:', err);
+      console.error("Update status error:", err);
+      Toast.show({
+        type: "error",
+        text1: "Error updating travel status",
+        text2: "Please try again.",
+        position: "top",
+      });
     }
   };
 
@@ -82,23 +136,23 @@ export const PassengerProvider = ({ children }: { children: ReactNode }) => {
     if (!user?.bus_id) return;
 
     // Step 1: connect socket
-    socket = io('http://10.24.183.189:8801'); // replace with your backend IP
+    socket = io("http://10.24.183.189:8801"); // replace with your backend IP
 
-    socket.on('connect', () => {
-      console.log('✅ Socket connected:', socket?.id);
-      socket?.emit('joinBusRoom', { bus_id: user.bus_id }); // join the correct bus room
+    socket.on("connect", () => {
+      console.log("✅ Socket connected:", socket?.id);
+      socket?.emit("joinBusRoom", { bus_id: user.bus_id }); // join the correct bus room
     });
 
     // Step 2: listen for new notification
-    socket.on('receiveNotification', (data: Passenger) => {
-      console.log('📩 New real-time passenger:', data);
+    socket.on("receiveNotification", (data: Passenger) => {
+      console.log("📩 New real-time passenger:", data);
 
       // Show optional toast popup
       Toast.show({
-        type: 'info',
-        text1: '🧍 New Passenger Booked',
+        type: "info",
+        text1: "🧍 New Passenger Booked",
         text2: `${data.passenger_name} at ${data.bus_stop_name}`,
-        position: 'top',
+        position: "top",
         topOffset: 80,
         visibilityTime: 4000,
       });
@@ -113,7 +167,7 @@ export const PassengerProvider = ({ children }: { children: ReactNode }) => {
 
     // Step 4: cleanup
     return () => {
-      socket?.off('receiveNotification');
+      socket?.off("receiveNotification");
       socket?.disconnect();
     };
   }, [user]);
@@ -124,7 +178,9 @@ export const PassengerProvider = ({ children }: { children: ReactNode }) => {
   }, [user]);
 
   return (
-    <PassengerContext.Provider value={{ passengers, fetchPassengers, updateStatus }}>
+    <PassengerContext.Provider
+      value={{ passengers, fetchPassengers, updateStatus }}
+    >
       {children}
     </PassengerContext.Provider>
   );
