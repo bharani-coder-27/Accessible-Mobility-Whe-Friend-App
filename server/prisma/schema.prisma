@@ -1,0 +1,128 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider        = "prisma-client-js"
+  output          = "../src/generated/prisma/client"
+  previewFeatures = ["driverAdapters"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  passenger
+  conductor
+  admin
+}
+
+enum NotificationStatus {
+  waiting
+  traveling
+  completed
+  sent
+  pending
+  confirmed
+  cancelled
+}
+
+enum NotificationType {
+  normal
+  start_travel
+  complete_travel
+}
+
+enum TravelStatus {
+  pending
+  confirmed
+  completed
+  cancelled
+}
+
+model User {
+  id               Int      @id @default(autoincrement())
+  name             String
+  email            String   @unique
+  dob              DateTime?
+  phone_number     String?
+  password         String
+  role             UserRole
+  is_active        Boolean  @default(true)
+  from             String?
+  to               String?
+  trip_code        String?
+  class_of_service String?
+  device_id        String?
+  bus_id           Int?
+  expo_token       String?
+  created_at       DateTime @default(now())
+  updated_at       DateTime @updatedAt
+
+  bus           Bus?           @relation("ConductorBus", fields: [bus_id], references: [id])
+  notifications Notification[]
+}
+
+model Bus {
+  id                    Int      @id @default(autoincrement())
+  name                  String
+  trip_code             String
+  device_id             String   @unique
+  wheelchair_accessible Boolean  @default(false)
+  is_active             Boolean  @default(true)
+  created_at            DateTime @default(now())
+  updated_at            DateTime @updatedAt
+
+  conductors    User[]         @relation("ConductorBus")
+  timings       BusTiming[]
+  notifications Notification[]
+}
+
+model BusStop {
+  id         Int      @id @default(autoincrement())
+  stop_name  String
+  latitude   Float
+  longitude  Float
+  city       String?
+  area       String?
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  timings       BusTiming[]
+  notifications Notification[]
+}
+
+model BusTiming {
+  id             Int      @id @default(autoincrement())
+  bus_id         Int
+  bus_stop_id    Int
+  arrival_time   String   // HH:mm:ss
+  departure_time String?
+  day_of_week    Int[]    @default([])
+  created_at     DateTime @default(now())
+  updated_at     DateTime @updatedAt
+
+  bus      Bus     @relation(fields: [bus_id], references: [id])
+  bus_stop BusStop @relation(fields: [bus_stop_id], references: [id])
+
+  @@index([bus_id, bus_stop_id])
+}
+
+model Notification {
+  id            Int                @id @default(autoincrement())
+  bus_id        Int
+  bus_stop_id   Int?
+  user_id       Int
+  timing        String?
+  message       String             @db.VarChar(255)
+  status        NotificationStatus @default(waiting)
+  type          NotificationType   @default(normal)
+  travel_status TravelStatus       @default(pending)
+  created_at    DateTime           @default(now())
+  updated_at    DateTime           @updatedAt
+
+  bus      Bus      @relation(fields: [bus_id], references: [id])
+  bus_stop BusStop? @relation(fields: [bus_stop_id], references: [id])
+  user     User     @relation(fields: [user_id], references: [id])
+}
