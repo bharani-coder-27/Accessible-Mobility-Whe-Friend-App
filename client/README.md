@@ -1,50 +1,45 @@
-# Welcome to your Expo app 👋
+# Whe Friend Mobile App
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Expo SDK 54 React Native client for the wheelchair-accessible bus booking system.
 
-## Get started
+## Android Run
 
-1. Install dependencies
+Start PostgreSQL and the backend first, then configure the client:
 
-   ```bash
-   npm install
-   ```
-
-2. Start the app
-
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
-```bash
-npm run reset-project
+```powershell
+cd client
+Copy-Item .env.example .env
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+The default backend URL is `http://10.0.2.2:8801/api`, which is the Android Emulator address for the host machine. For a physical device, set `EXPO_PUBLIC_API_URL` and `EXPO_PUBLIC_SOCKET_URL` in `.env` to the computer's LAN address.
 
-## Learn more
+Build and install the native development app:
 
-To learn more about developing your project with Expo, look at the following resources:
+```powershell
+npm install
+npx expo run:android
+```
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+The native Firebase file is `android/app/google-services.json`. It must belong to the Firebase Android app whose package is `com.anonymous.client`.
 
-## Join the community
+## Google Services
 
-Join our community of developers creating universal apps.
+Set `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY` in `.env` before rebuilding Android. The key must have billing enabled and access to:
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+- Maps SDK for Android
+- Maps SDK for iOS, if building iOS
+- Geocoding API
+- Places API
+- Directions API
+
+Restrict the key by Android package/SHA-1 for native Maps and restrict web service usage appropriately. The old key was removed from source and cannot be assumed valid because it is several months old. A new key is not required to compile the app, but Maps, address search, and route directions will not work without one.
+
+## Checks
+
+```powershell
+npx tsc --noEmit
+npm run lint
+npx expo config --type public
+```
+
+The lint command currently reports only hook dependency warnings in tracking and conductor socket effects.
