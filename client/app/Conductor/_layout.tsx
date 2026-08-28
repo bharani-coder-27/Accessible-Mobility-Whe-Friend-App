@@ -1,10 +1,9 @@
 import { Tabs } from 'expo-router';
-import React, { useContext, useEffect } from 'react';
+import React from 'react';
 import { PassengerProvider } from '../../src/contexts/PassengerContext';
 import Header from '../components/Header';
 import { Image } from 'react-native';
 import { icons } from '../../constants/icons';
-import Toast from 'react-native-toast-message';
 
 export default function ConductorTabsLayout() {
 

@@ -1,4 +1,4 @@
-import React, { useState, useContext } from "react";
+import React, { useContext } from "react";
 import {
   View,
   Text,
@@ -10,7 +10,6 @@ import {
   BusTiming,
   BusStop,
   Coordinates,
-  AuthContextType,
 } from "../../src/types";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter, useLocalSearchParams } from "expo-router";
@@ -21,9 +20,7 @@ import { AuthContext } from "@/src/contexts/AuthContext";
 const BusTimingsList = () => {
   const router = useRouter();
   const params = useLocalSearchParams();
-  const { logout, user } = useContext(AuthContext) as AuthContextType;
-
-  const [stop, setStop] = useState<BusTiming | null>(null);
+  const { user } = useContext(AuthContext);
 
   const selectedStop: BusStop = params.selectedStop
     ? JSON.parse(params.selectedStop as string)
@@ -42,8 +39,6 @@ const BusTimingsList = () => {
     : null;
 
   const onSelectBus = async (item: BusTiming) => {
-    setStop(item);
-
     const response = async () => {
       return await api.post(`/notify`, {
         bus_id: item.bus_id,

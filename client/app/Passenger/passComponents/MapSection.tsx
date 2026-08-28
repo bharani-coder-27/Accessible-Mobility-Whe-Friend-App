@@ -1,13 +1,11 @@
 import React, { useRef } from "react";
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from "react-native-maps";
 import { StyleSheet, View } from "react-native";
-import { Coordinates, BusStop } from "../../../src/types";
+import { Coordinates } from "../../../src/types";
 
 interface Props {
   fromCoords: Coordinates;
   toCoords?: Coordinates | null;
-  nearbyStops: BusStop[];
-  onStopPress: (stop: BusStop) => void;
   mapWrapperStyle?: object;
   mapStyle?: object;
   userLocation?: Coordinates | null;
@@ -17,8 +15,6 @@ interface Props {
 const MapSection = ({
   fromCoords,
   toCoords,
-  nearbyStops,
-  onStopPress,
   mapStyle,
   mapWrapperStyle,
   userLocation,

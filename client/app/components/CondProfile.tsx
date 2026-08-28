@@ -1,4 +1,4 @@
-import React, { useContext, useState, useEffect } from "react";
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -14,8 +14,6 @@ import { Ionicons, Feather } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { images } from "../../constants/images";
-import { icons } from "../../constants/icons";
-import { AuthContext } from '../../src/contexts/AuthContext';
 
 const CondProfile = () => {
   const router = useRouter();
@@ -32,10 +30,6 @@ const CondProfile = () => {
   const [tripCode, setTripCode] = useState("TRIP12345");
 
   const [isEditing, setIsEditing] = useState(false);
-  const { logout } = useContext(AuthContext);
-
-  
-
   // Date Picker State
   const [showDatePicker, setShowDatePicker] = useState(false);
 

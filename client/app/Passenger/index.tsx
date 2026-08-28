@@ -14,7 +14,6 @@ import {
 import { AuthContext } from "../../src/contexts/AuthContext";
 import {
   Coordinates,
-  BusStop,
   AuthContextType,
 } from "../../src/types";
 import LocationInput from "./passComponents/LocationInput";
@@ -40,8 +39,6 @@ export default function PassengerHomeScreen() {
   const [toAddress, setToAddress] = useState<string>("");
   const [fromCoords, setFromCoords] = useState<Coordinates | null>(null);
   const [toCoords, setToCoords] = useState<Coordinates | null>(null);
-  const [nearbyStops, setNearbyStops] = useState<BusStop[]>([]);
-  const [selectedStop, setSelectedStop] = useState<BusStop | null>(null);
   const [fromSuggestions, setFromSuggestions] = useState<any[]>([]);
   const [toSuggestions, setToSuggestions] = useState<any[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
@@ -114,7 +111,6 @@ export default function PassengerHomeScreen() {
           city: "Coimbatore",
         },
       });
-      setNearbyStops(response.data || []);
       router.push({
         pathname: "/Passenger/NearbyStopsModal",
         params: {
@@ -232,8 +228,6 @@ export default function PassengerHomeScreen() {
             <MapSection
               fromCoords={fromCoords}
               toCoords={toCoords}
-              nearbyStops={nearbyStops}
-              onStopPress={(stop) => setSelectedStop(stop)}
             />
           )}
         </View>

@@ -1,8 +1,6 @@
-import React, { useState, useContext } from "react";
+import React, { useState } from "react";
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ScrollView } from "react-native";
 import { useRouter } from "expo-router";
-import { AuthContext } from "../../src/contexts/AuthContext";
-import axios from "axios";
 import { LinearGradient } from "expo-linear-gradient";
 import { FontAwesome } from "@expo/vector-icons";
 import Animated, { useSharedValue, useAnimatedStyle, withSpring } from "react-native-reanimated";
@@ -10,7 +8,6 @@ import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/dat
 import api from '../../src/services/api';
 
 export default function RegisterScreen() {
-  const { login } = useContext(AuthContext);
   const router = useRouter();
   const [name, setName] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");

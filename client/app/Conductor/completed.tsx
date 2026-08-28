@@ -1,7 +1,6 @@
 import React from 'react';
 import PassengerList from '../components/PassengerList';
 import { View } from 'react-native';
-import Header from '../components/Header';
 
 export default function CompletedScreen() {
   return (

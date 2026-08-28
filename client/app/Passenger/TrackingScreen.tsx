@@ -5,6 +5,7 @@ import * as Location from 'expo-location';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import axios from 'axios';
 import { MaterialIcons } from '@expo/vector-icons';
+import { googleMapsApiKey } from '../../src/config';
 
 interface Coordinates {
   latitude: number;
@@ -39,8 +40,6 @@ const TrackingScreen: React.FC = () => {
 
   // 50 meters balances GPS accuracy (5-20m) and proximity to bus stops in Salem, India
   const DESTINATION_RADIUS = 50; // Meters to consider "arrived"
-  const API_KEY = "GOOGLE_MAPS_API_KEY";
-
   // Validate coordinates on mount
   useEffect(() => {
     console.log('Parsed coordinates:', { parsedDestLat, parsedDestLng, parsedFromLat, parsedFromLng });
@@ -142,7 +141,7 @@ const TrackingScreen: React.FC = () => {
           params: {
             origin: `${startLat},${startLng}`,
             destination: `${parsedDestLat},${parsedDestLng}`,
-            key: API_KEY,
+            key: googleMapsApiKey,
             mode: 'transit',
             departure_time: 'now',
           },

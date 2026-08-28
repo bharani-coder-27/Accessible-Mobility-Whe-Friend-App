@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React from "react";
 import {
   View,
   Text,
@@ -19,11 +19,7 @@ const NearbyStopsModal = () => {
   const stops: BusStop[] = JSON.parse((params.stops as string) || "[]");
   const fromAddress: string = (params.fromAddress as string) || "";
 
-  const [selectedStop, setSelectedStop] = useState<BusStop | null>(null);
-
   const handleNextScreen = async (item: BusStop) => {
-    setSelectedStop(item);
-
     const response = await api.get(`/buses/bus_timings`, {
       params: {
         stop_id: item.id,

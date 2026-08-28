@@ -1,7 +1,6 @@
 // app/conductor/waiting.tsx
 import React from 'react';
 import { SafeAreaView, StyleSheet } from 'react-native';
-import Header from '../components/Header';
 import PassengerList from '../components/PassengerList';
 
 export default function WaitingScreen() {
