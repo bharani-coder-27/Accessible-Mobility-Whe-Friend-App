@@ -40,12 +40,14 @@ export default function LoginScreen() {
       });
       console.log("Login response:", response.data);
       const { user, token } = response.data;
-      await login(user, token);
-      if (user.role === "conductor") {
-        router.push("./Conductor/waiting");
-      } else {
-        router.push("./Passenger");
+      
+      if (!user || !token) {
+        Alert.alert("Error", "Invalid response from server");
+        return;
       }
+
+      await login(user, token);
+      // Navigation will be handled automatically by the AuthContext routing
     } catch (error) {
       console.error("Login error:", error);
       Alert.alert("Error", "Invalid email or password");
