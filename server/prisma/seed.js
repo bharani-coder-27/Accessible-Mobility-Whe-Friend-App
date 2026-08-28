@@ -1,6 +1,6 @@
 import "dotenv/config";
 import { PrismaPg } from "@prisma/adapter-pg";
-import { PrismaClient } from "../src/generated/prisma/client.js";
+import { PrismaClient } from "../src/generated/prisma/client/index.js";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -23,26 +23,40 @@ const seedDB = async () => {
     console.log("✅ Cleared existing data");
 
     // ─── Bus Stops ─────────────────────────────────────────────────────────────
-    const busStopsJsonPath = path.join(__dirname, "..", "bus_stops.json");
+    const busStopsJsonPath = path.join(__dirname, "..", "..", "bus_stops.json");
 
     let busStops = [];
     if (fs.existsSync(busStopsJsonPath)) {
       const rawData = JSON.parse(fs.readFileSync(busStopsJsonPath, "utf-8"));
-      busStops = await Promise.all(
-        rawData.map((stop) =>
-          prisma.busStop.create({
-            data: {
-              stop_name: stop.stop_name || stop.stopName,
-              latitude: stop.latitude,
-              longitude: stop.longitude,
-              city: stop.city || null,
-              area: stop.area || null,
-            },
-          })
-        )
+      const importedStops = rawData.flatMap((route) =>
+        Array.isArray(route.stops) ? route.stops : [route]
       );
-      console.log(`✅ Seeded ${busStops.length} bus stops from bus_stops.json`);
-    } else {
+      const stopsWithCoordinates = importedStops.filter(
+        (stop) =>
+          (stop.stop_name || stop.stopName || stop.name) &&
+          Number.isFinite(Number(stop.latitude)) &&
+          Number.isFinite(Number(stop.longitude))
+      );
+
+      if (stopsWithCoordinates.length > 0) {
+        busStops = await Promise.all(
+          stopsWithCoordinates.map((stop) =>
+            prisma.busStop.create({
+              data: {
+                stop_name: stop.stop_name || stop.stopName || stop.name,
+                latitude: Number(stop.latitude),
+                longitude: Number(stop.longitude),
+                city: stop.city || null,
+                area: stop.area || null,
+              },
+            })
+          )
+        );
+        console.log(`✅ Seeded ${busStops.length} bus stops from bus_stops.json`);
+      }
+    }
+
+    if (busStops.length === 0) {
       // Fallback: seed Coimbatore stops manually
       const coimbatoreStops = [
         { stop_name: "Ukkadam Bus Stand", latitude: 10.9629, longitude: 76.9402, city: "Coimbatore", area: "Ukkadam" },
