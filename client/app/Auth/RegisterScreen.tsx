@@ -98,7 +98,7 @@ export default function RegisterScreen() {
         dob,
         password,
         role,
-        is_active: 1,
+        is_active: true,
         ...(role === "conductor" && {
           from,
           to,

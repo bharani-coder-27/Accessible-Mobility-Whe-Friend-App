@@ -36,6 +36,13 @@ export const register = async (req, res, next) => {
     if (existingUser) return res.status(400).json({ message: 'User already exists' });
 
     const hashedPassword = await bcrypt.hash(password, 10);
+    const isActive =
+      is_active === undefined ||
+      is_active === null ||
+      is_active === true ||
+      is_active === 1 ||
+      is_active === '1' ||
+      is_active === 'true';
     const userId = await createUser(
       name,
       email,
@@ -43,7 +50,7 @@ export const register = async (req, res, next) => {
       phone_number,
       hashedPassword,
       role,
-      is_active ?? true,
+      isActive,
       role === 'conductor' ? from : null,
       role === 'conductor' ? to : null,
       role === 'conductor' ? tripCode : null,
