@@ -18,11 +18,11 @@
       }
     },
     "android": {
+      "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/logo-app.png",
         "backgroundColor": "#ffffff"
       },
-      "googleServicesFile": "./android/app/google-services.json", 
       "edgeToEdgeEnabled": true,
       "config": {
         "googleMaps": {
