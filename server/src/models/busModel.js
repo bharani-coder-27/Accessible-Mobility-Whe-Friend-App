@@ -1,107 +1,95 @@
-import db from '../configDB/db.js';
+import prisma from '../configDB/prisma.js';
 
+/**
+ * Haversine formula to calculate distance in km between two lat/lon points.
+ */
+const calculateDistance = (lat1, lon1, lat2, lon2) => {
+  const R = 6371; // Earth's radius in km
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+};
+
+/**
+ * Get bus timings for a given bus stop from a given time onwards.
+ * @param {number} stop_id
+ * @param {string} formattedTime - HH:mm:ss
+ */
 export const getBusTimings = async (stop_id, formattedTime) => {
   try {
-    const sqlQuery = `
-            SELECT
-              T1.id AS timing_id,
-              T1.arrival_time,
-              T2.id AS bus_id,
-              T2.name AS bus_name,
-              T2.tripCode AS trip_code,
-              T2.wheelchair_accessible
-            FROM bus_timings AS T1
-            JOIN buses AS T2
-              ON T1.bus_id = T2.id
-            WHERE
-              T1.stop_id = ? AND T1.arrival_time >= CURTIME()
-            ORDER BY
-              T1.arrival_time ASC;
-        `;
+    const timings = await prisma.busTiming.findMany({
+      where: {
+        bus_stop_id: parseInt(stop_id),
+        arrival_time: { gte: formattedTime },
+      },
+      include: {
+        bus: {
+          select: { id: true, name: true, trip_code: true, wheelchair_accessible: true },
+        },
+      },
+      orderBy: { arrival_time: 'asc' },
+    });
 
-        // Execute the query
-        const [timingsRows] = await db.execute(sqlQuery, [stop_id]);
-
-        // Map the results to the format the frontend expects
-        return timingsRows.map(row => ({
-            bus_id: row.bus_id.toString(),
-            bus_name: row.bus_name,
-            arrival_time: row.arrival_time,
-            tripCode: row.trip_code,
-            wheelchair_accessible: row.wheelchair_accessible
-        }));
-    } catch (error) {
-        console.error('Error fetching bus timings:', error);
-        throw new Error('Failed to fetch bus timings');
-    }
+    return timings.map((timing) => ({
+      bus_id: timing.bus.id,
+      bus_name: timing.bus.name,
+      arrival_time: timing.arrival_time,
+      tripCode: timing.bus.trip_code,
+      wheelchair_accessible: timing.bus.wheelchair_accessible,
+    }));
+  } catch (error) {
+    console.error('Error fetching bus timings:', error);
+    throw new Error('Failed to fetch bus timings');
+  }
 };
 
-// A simplified Haversine calculation for the final distance
-const haversineSQL = `
-    (6371 * acos(
-      cos(radians(?)) * cos(radians(latitude)) * cos(radians(longitude) - radians(?)) +
-      sin(radians(?)) * sin(radians(latitude))
-    )) AS distance
-`;
-
+/**
+ * Get bus stops within a given radius (metres) of a lat/lon point,
+ * optionally filtered by city, sorted by distance.
+ * @param {number} latitude
+ * @param {number} longitude
+ * @param {number} radius - in metres
+ * @param {string|undefined} city
+ */
 export const getNearBusStops = async (latitude, longitude, radius, city) => {
-    if (!latitude || !longitude) {
-        throw new Error('Latitude and longitude are required');
-    }
+  if (!latitude || !longitude) {
+    throw new Error('Latitude and longitude are required');
+  }
 
-    // Convert radius from meters to kilometers for the query
+  try {
     const radiusKm = radius / 1000;
 
-    // Calculate the bounding box coordinates
-    const latDelta = radiusKm / 111.0; // 1 degree of latitude is approx 111 km
-    const lonDelta = radiusKm / (111.0 * Math.cos(latitude * Math.PI / 180)); // 1 degree of longitude varies with latitude
+    const allStops = await prisma.busStop.findMany({
+      where: city ? { city } : undefined,
+      select: {
+        id: true,
+        stop_name: true,
+        latitude: true,
+        longitude: true,
+      },
+    });
 
-    const minLat = latitude - latDelta;
-    const maxLat = latitude + latDelta;
-    const minLon = longitude - lonDelta;
-    const maxLon = longitude + lonDelta;
+    const nearbyStops = allStops
+      .map((stop) => ({
+        id: stop.id,
+        stop_name: stop.stop_name,
+        latitude: stop.latitude,
+        longitude: stop.longitude,
+        distance: calculateDistance(latitude, longitude, stop.latitude, stop.longitude),
+      }))
+      .filter((stop) => stop.distance <= radiusKm)
+      .sort((a, b) => a.distance - b.distance);
 
-    let query = `
-        SELECT id, stop_name, latitude, longitude,
-        ${haversineSQL}
-        FROM bus_stops
-        WHERE latitude BETWEEN ? AND ?
-        AND longitude BETWEEN ? AND ?
-    `;
-
-    const params = [
-        latitude,
-        longitude,
-        latitude,
-        minLat,
-        maxLat,
-        minLon,
-        maxLon,
-    ];
-
-    if (city) {
-        query += ' AND city = ?';
-        params.push(city);
-    }
-
-    query += `
-        HAVING distance <= ?
-        ORDER BY distance ASC
-    `;
-    params.push(radiusKm);
-
-    try {
-        const [rows] = await db.query(query, params);
-        return rows.map(row => ({
-            id: row.id.toString(),
-            stop_name: row.stop_name,
-            latitude: parseFloat(row.latitude),
-            longitude: parseFloat(row.longitude),
-            distance: parseFloat(row.distance),
-        }));
-    } catch (error) {
-        console.error("Database query error:", error);
-        throw error;
-    }
+    return nearbyStops;
+  } catch (error) {
+    console.error('Database query error:', error);
+    throw error;
+  }
 };
-

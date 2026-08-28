@@ -1,51 +1,75 @@
-import pool from '../configDB/db.js';
+import prisma from '../configDB/prisma.js';
 
-export const createUser = async (name, email, dob, phoneNumber, password, role, isActive, from, to, tripCode, classOfService, deviceId) => {
+/**
+ * Create a new user. For conductors, also finds or creates the associated bus
+ * and links it to the user.
+ * @returns {number} The new user's id
+ */
+export const createUser = async (
+  name,
+  email,
+  dob,
+  phone_number,
+  password,
+  role,
+  is_active,
+  from,
+  to,
+  tripCode,
+  classOfService,
+  deviceId
+) => {
   try {
+    // Create user without bus_id initially
+    const newUser = await prisma.user.create({
+      data: {
+        name,
+        email,
+        dob: dob ? new Date(dob) : null,
+        phone_number: phone_number ?? null,
+        password,
+        role,
+        is_active: is_active ?? true,
+        from: role === 'conductor' ? from : null,
+        to: role === 'conductor' ? to : null,
+        trip_code: role === 'conductor' ? tripCode : null,
+        class_of_service: role === 'conductor' ? classOfService : null,
+        device_id: role === 'conductor' ? deviceId : null,
+      },
+    });
 
-    // Insert user without bus_id
-    const [result] = await pool.query(
-      'INSERT INTO users (name, email, dob, phone_number, password, role, is_active, `from`, `to`, tripCode, classOfService) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [name, email, dob, phoneNumber, password, role, isActive, from, to, tripCode, classOfService]
-    );
-    const userId = result.insertId;
-
-    // For conductors, handle bus creation/lookup
+    // For conductors, find or create the associated bus then link it
     if (role === 'conductor' && from && to && tripCode && classOfService && deviceId) {
-      // Check if bus exists for deviceId
-      const [busResult] = await pool.query(
-        'SELECT id FROM buses WHERE deviceId = ?',
-        [deviceId]
-      );
-      let busId;
+      let bus = await prisma.bus.findUnique({ where: { device_id: deviceId } });
 
-      if (busResult.length > 0) {
-        // Use existing bus
-        busId = busResult[0].id;
-      } else {
-        // Create new bus
-        const [newBus] = await pool.query(
-          'INSERT INTO buses (name, tripCode, deviceId, wheelchair_accessible) VALUES (?, ?, ?, ?)',
-          [`${from}-${to}`, tripCode, deviceId, 0]
-        );
-        busId = newBus.insertId;
+      if (!bus) {
+        bus = await prisma.bus.create({
+          data: {
+            name: `${from}-${to}`,
+            trip_code: tripCode,
+            device_id: deviceId,
+            wheelchair_accessible: false,
+          },
+        });
       }
 
-      // Update user's bus_id
-      await pool.query(
-        'UPDATE users SET bus_id = ? WHERE id = ?',
-        [busId, userId]
-      );
+      await prisma.user.update({
+        where: { id: newUser.id },
+        data: { bus_id: bus.id },
+      });
     }
-    
-    return userId;
+
+    return newUser.id;
   } catch (err) {
-    console.log(err);
+    console.error(err);
     throw err;
   }
 };
 
+/**
+ * Find a user by email address.
+ * @returns {object|null} The user record or null
+ */
 export const findUserByEmail = async (email) => {
-  const [rows] = await pool.query('SELECT * FROM users WHERE email = ?', [email]);
-  return rows[0];
+  return prisma.user.findUnique({ where: { email } });
 };

@@ -1,166 +1,222 @@
-import db from '../configDB/db.js';
+import prisma from '../configDB/prisma.js';
 import { sendPushNotification } from '../services/notificationsService.js';
 
-
+/**
+ * Create a new passenger notification for a bus at a stop.
+ */
 export const createNotification = async (bus_id, bus_stop_id, user_id, timing, message) => {
-  // Validate inputs
-  if (!Number.isInteger(bus_id) || !Number.isInteger(bus_stop_id) || !Number.isInteger(user_id)) {
-    throw new Error('bus_id, bus_stop_id, and user_id must be integers');
-  }
-  if (!/^\d{2}:\d{2}:\d{2}$/.test(timing)) {
-    throw new Error('timing must be in HH:mm:ss format');
-  }
-  if (!message || message.length > 255) {
-    throw new Error('message is required and must not exceed 255 characters');
-  }
-
-  // Validate foreign keys
-  const [[bus]] = await db.query('SELECT id FROM buses WHERE id = ?', [bus_id]);
-  if (!bus) throw new Error('Invalid bus_id');
-  const [[bus_stop]] = await db.query('SELECT id FROM bus_stops WHERE id = ?', [bus_stop_id]);
-  if (!bus_stop) throw new Error('Invalid bus_stop_id');
-  const [[user]] = await db.query('SELECT id FROM users WHERE id = ?', [user_id]);
-  if (!user) throw new Error('Invalid user_id');
-
-  // Prevent duplicate active notification for same stop/user
-  const [[existing]] = await db.query(
-    `SELECT id FROM notifications 
-     WHERE bus_id = ? AND bus_stop_id = ? AND user_id = ? 
-     AND status IN ('waiting', 'traveling')`,
-    [bus_id, bus_stop_id, user_id]
-  );
-  if (existing) {
-    throw new Error('You already have an active notification for this bus and stop.');
-  }
-
   try {
-    const [result] = await db.query(
-      `INSERT INTO notifications (bus_id, bus_stop_id, user_id, timing, message, status, created_at)
-       VALUES (?, ?, ?, ?, ?, 'waiting', NOW())`,
-      [bus_id, bus_stop_id, user_id, timing, message]
-    );
+    if (!bus_id || !bus_stop_id || !user_id) {
+      throw new Error('bus_id, bus_stop_id, and user_id are required');
+    }
+    if (timing && !/^\d{2}:\d{2}:\d{2}$/.test(timing)) {
+      throw new Error('timing must be in HH:mm:ss format');
+    }
+    if (!message || message.length > 255) {
+      throw new Error('message is required and must not exceed 255 characters');
+    }
 
-    const [[notification]] = await db.query(
-      `SELECT n.id, n.bus_id, n.bus_stop_id, n.user_id, n.timing, n.status, n.message, n.created_at,
-              bs.stop_name AS bus_stop_name, u.name AS passenger_name
-       FROM notifications n
-       JOIN bus_stops bs ON n.bus_stop_id = bs.id
-       JOIN users u ON n.user_id = u.id
-       WHERE n.id = ?`,
-      [result.insertId]
-    );
-    return notification;
+    // Validate foreign keys
+    const bus = await prisma.bus.findUnique({ where: { id: bus_id } });
+    if (!bus) throw new Error('Invalid bus_id');
+
+    const busStop = await prisma.busStop.findUnique({ where: { id: bus_stop_id } });
+    if (!busStop) throw new Error('Invalid bus_stop_id');
+
+    const user = await prisma.user.findUnique({ where: { id: user_id } });
+    if (!user) throw new Error('Invalid user_id');
+
+    // Prevent duplicate active notification for same bus/stop/user
+    const existing = await prisma.notification.findFirst({
+      where: {
+        bus_id,
+        bus_stop_id,
+        user_id,
+        status: { in: ['waiting', 'traveling'] },
+      },
+    });
+
+    if (existing) {
+      throw new Error('You already have an active notification for this bus and stop.');
+    }
+
+    // Create notification
+    const notification = await prisma.notification.create({
+      data: {
+        bus_id,
+        bus_stop_id,
+        user_id,
+        timing: timing ?? null,
+        message,
+        status: 'waiting',
+      },
+      include: {
+        bus_stop: { select: { stop_name: true } },
+        user: { select: { name: true } },
+      },
+    });
+
+    return {
+      id: notification.id,
+      bus_id: notification.bus_id,
+      bus_stop_id: notification.bus_stop_id,
+      bus_stop_name: notification.bus_stop.stop_name,
+      user_id: notification.user_id,
+      passenger_name: notification.user.name,
+      timing: notification.timing,
+      status: notification.status,
+      message: notification.message,
+      created_at: notification.created_at,
+    };
   } catch (err) {
     throw new Error(`Failed to create notification: ${err.message}`);
   }
 };
 
-// Fetch ALL notifications for a bus
+/**
+ * Fetch all notifications for a given bus, newest first.
+ */
 export const getBusNotifications = async (bus_id) => {
-  if (!Number.isInteger(bus_id)) throw new Error('bus_id must be an integer');
   try {
-    const [notifications] = await db.query(
-      `SELECT n.id, n.bus_id, n.bus_stop_id, n.user_id, n.timing, n.status, n.message, n.created_at,
-              bs.stop_name AS bus_stop_name, u.name AS passenger_name
-       FROM notifications n
-       JOIN bus_stops bs ON n.bus_stop_id = bs.id
-       JOIN users u ON n.user_id = u.id
-       WHERE n.bus_id = ?
-       ORDER BY n.created_at DESC`,
-      [bus_id]
-    );
-    return notifications;
+    const notifications = await prisma.notification.findMany({
+      where: { bus_id },
+      include: {
+        bus_stop: { select: { id: true, stop_name: true } },
+        user: { select: { id: true, name: true } },
+      },
+      orderBy: { created_at: 'desc' },
+    });
+
+    return notifications.map((n) => ({
+      id: n.id,
+      bus_id: n.bus_id,
+      bus_stop_id: n.bus_stop?.id ?? null,
+      bus_stop_name: n.bus_stop?.stop_name ?? null,
+      user_id: n.user.id,
+      passenger_name: n.user.name,
+      timing: n.timing,
+      status: n.status,
+      message: n.message,
+      created_at: n.created_at,
+    }));
   } catch (err) {
     throw new Error(`Failed to fetch notifications: ${err.message}`);
   }
 };
 
-
-// ✅ Conductor changes status: waiting -> traveling -> completed
+/**
+ * Advance a notification status: waiting → traveling → completed.
+ * Sends an Expo push notification to the passenger on each transition.
+ */
 export const updateNotificationStatus = async (notification_id, bus_id) => {
-  if (!Number.isInteger(notification_id) || !Number.isInteger(bus_id)) {
-    throw new Error('notification_id and bus_id must be integers');
-  }
-
   try {
-    // 1️⃣ Get current notification
-    const [[notification]] = await db.query(
-      `SELECT id, status, user_id FROM notifications WHERE id = ? AND bus_id = ?`,
-      [notification_id, bus_id]
-    );
+    const notification = await prisma.notification.findFirst({
+      where: { id: notification_id, bus_id },
+      include: {
+        user: { select: { id: true, name: true, expo_token: true } },
+        bus_stop: { select: { stop_name: true } },
+      },
+    });
 
     if (!notification) {
       throw new Error('Notification not found or not authorized for this bus');
     }
 
-    // 2️⃣ Decide next status
     let newStatus;
     if (notification.status === 'waiting') newStatus = 'traveling';
     else if (notification.status === 'traveling') newStatus = 'completed';
-    else if (notification.status === 'completed') return notification; // Already completed
+    else if (notification.status === 'completed') {
+      // Already completed — return current state
+      return {
+        id: notification.id,
+        bus_id: notification.bus_id,
+        bus_stop_id: notification.bus_stop_id,
+        bus_stop_name: notification.bus_stop?.stop_name ?? null,
+        user_id: notification.user.id,
+        passenger_name: notification.user.name,
+        timing: notification.timing,
+        status: notification.status,
+        message: notification.message,
+        created_at: notification.created_at,
+      };
+    } else {
+      throw new Error('Invalid notification status');
+    }
 
-    // 3️⃣ Update status in DB
-    await db.query(
-      `UPDATE notifications SET status = ? WHERE id = ? AND bus_id = ?`,
-      [newStatus, notification_id, bus_id]
-    );
+    const updated = await prisma.notification.update({
+      where: { id: notification_id },
+      data: { status: newStatus },
+      include: {
+        bus_stop: { select: { stop_name: true } },
+        user: { select: { id: true, name: true, expo_token: true } },
+      },
+    });
 
-    // 4️⃣ Fetch updated notification + passenger info
-    const [[updated]] = await db.query(
-      `SELECT n.id, n.bus_id, n.bus_stop_id, n.user_id, n.timing, n.status, n.message, n.created_at,
-              bs.stop_name AS bus_stop_name, u.name AS passenger_name, u.expo_token
-       FROM notifications n
-       JOIN bus_stops bs ON n.bus_stop_id = bs.id
-       JOIN users u ON n.user_id = u.id
-       WHERE n.id = ?`,
-      [notification_id]
-    );
-
-    // 5️⃣ Send push notification if passenger has Expo token
-    if (updated?.expo_token) {
+    // Send push notification to passenger if they have an Expo token
+    if (updated.user?.expo_token) {
       let title = '';
       let body = '';
 
       if (newStatus === 'traveling') {
         title = '🚍 Your bus has started!';
-        body = `Hello ${updated.passenger_name}, your bus is now on the way from ${updated.bus_stop_name}.`;
+        body = `Hello ${updated.user.name}, your bus is now on the way from ${updated.bus_stop?.stop_name}.`;
       } else if (newStatus === 'completed') {
         title = '✅ Ride Completed!';
-        body = `Hi ${updated.passenger_name}, your trip from ${updated.bus_stop_name} has been completed.`;
+        body = `Hi ${updated.user.name}, your trip from ${updated.bus_stop?.stop_name} has been completed.`;
       }
 
-      await sendPushNotification(updated.expo_token, title, body, {
+      await sendPushNotification(updated.user.expo_token, title, body, {
         screen: 'BookingStatus',
         status: newStatus,
         bus_id: updated.bus_id,
         notification_id: updated.id,
       });
     } else {
-      console.log(`⚠️ No Expo token for user ${notification.user_id}`);
+      console.log(`⚠️ No Expo token for user ${notification.user.id}`);
     }
 
     console.log(`✅ Notification status updated to ${newStatus} for ID ${notification_id}`);
-    return updated;
+
+    return {
+      id: updated.id,
+      bus_id: updated.bus_id,
+      bus_stop_id: updated.bus_stop_id,
+      bus_stop_name: updated.bus_stop?.stop_name ?? null,
+      user_id: updated.user.id,
+      passenger_name: updated.user.name,
+      timing: updated.timing,
+      status: updated.status,
+      message: updated.message,
+      created_at: updated.created_at,
+    };
   } catch (err) {
     throw new Error(`Failed to update notification status: ${err.message}`);
   }
 };
 
-
-
+/**
+ * Save or update a passenger's Expo push token.
+ */
 export const savePushToken = async (user_id, expo_push_token) => {
-  if (!Number.isInteger(user_id)) {
-    throw new Error('user_id must be an integer');
-  }
-  if (!expo_push_token || typeof expo_push_token !== 'string' || !expo_push_token.startsWith('ExponentPushToken[')) {
-    throw new Error('Invalid expo_push_token format');
-  }
   try {
-    // Upsert the push token
-    await db.query(
-      `UPDATE users SET expo_token = ? WHERE id = ?`,
-      [expo_push_token, user_id]
-    );
+    if (
+      !expo_push_token ||
+      typeof expo_push_token !== 'string' ||
+      !expo_push_token.startsWith('ExponentPushToken[')
+    ) {
+      throw new Error('Invalid expo_push_token format');
+    }
+
+    const user = await prisma.user.update({
+      where: { id: user_id },
+      data: { expo_token: expo_push_token },
+    });
+
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    return user;
   } catch (err) {
     throw new Error(`Failed to save push token: ${err.message}`);
   }
