@@ -6,9 +6,11 @@ import { LinearGradient } from "expo-linear-gradient";
 import { FontAwesome } from "@expo/vector-icons";
 import Animated, { useSharedValue, useAnimatedStyle, withSpring } from "react-native-reanimated";
 import api from '../../src/services/api';
+import { useLanguage } from "../../src/contexts/LanguageContext";
 
 export default function LoginScreen() {
   const { login } = useContext(AuthContext);
+  const { language, setLanguage, t } = useLanguage();
   const router = useRouter();
   const [email, setEmail] = useState<string>("");
   const [password, setPassword] = useState<string>("");
@@ -29,7 +31,7 @@ export default function LoginScreen() {
 
   const handleLogin = async () => {
     if (!email || !password) {
-      Alert.alert("Error", "Please enter email and password");
+      Alert.alert("Error", `${t("email")} and ${t("password")} are required`);
       return;
     }
 
@@ -56,13 +58,18 @@ export default function LoginScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>
-        <FontAwesome name="sign-in" size={28} color="#2c3e50" /> Welcome Back
-      </Text>
+      <Text style={styles.title}><FontAwesome name="sign-in" size={28} color="#2c3e50" /> {t("welcome")}</Text>
+      <View style={styles.languageRow}>
+        {(["en", "ta", "hi"] as const).map((item) => (
+          <TouchableOpacity key={item} onPress={() => setLanguage(item)} style={[styles.language, language === item && styles.languageActive]}>
+            <Text style={styles.languageText}>{item.toUpperCase()}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
 
       <TextInput
         style={styles.input}
-        placeholder="Email Address"
+        placeholder={t("email")}
         value={email}
         onChangeText={setEmail}
         placeholderTextColor="#000"
@@ -71,7 +78,7 @@ export default function LoginScreen() {
       />
       <TextInput
         style={styles.input}
-        placeholder="Password"
+        placeholder={t("password")}
         value={password}
         onChangeText={setPassword}
         placeholderTextColor="#000"
@@ -86,13 +93,13 @@ export default function LoginScreen() {
       >
         <Animated.View style={[styles.loginButton, animatedButtonStyle]}>
           <LinearGradient colors={["#3498db", "#2980b9"]} style={styles.gradientButton}>
-            <Text style={styles.buttonText}>Login</Text>
+            <Text style={styles.buttonText}>{t("login")}</Text>
           </LinearGradient>
         </Animated.View>
       </TouchableOpacity>
 
       <TouchableOpacity onPress={() => router.push("/Auth/RegisterScreen")}>
-        <Text style={styles.registerLink}>Don&apos;t have an account? Register</Text>
+        <Text style={styles.registerLink}>{t("noAccount")}</Text>
       </TouchableOpacity>
     </View>
   );
@@ -146,4 +153,8 @@ const styles = StyleSheet.create({
     textAlign: "center",
     textDecorationLine: "underline",
   },
+  languageRow: { flexDirection: "row", justifyContent: "center", gap: 8, marginBottom: 12 },
+  language: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, backgroundColor: "#e5e7eb" },
+  languageActive: { backgroundColor: "#3498db" },
+  languageText: { fontSize: 12, fontWeight: "700", color: "#243447" },
 });

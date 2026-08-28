@@ -29,11 +29,13 @@ import { router } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { images } from "../../constants/images";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import { useLanguage } from "../../src/contexts/LanguageContext";
 
 const { width } = Dimensions.get("window");
 
 export default function PassengerHomeScreen() {
   const { logout, user } = useContext(AuthContext) as AuthContextType;
+  const { t } = useLanguage();
 
   const [fromAddress, setFromAddress] = useState<string>("");
   const [toAddress, setToAddress] = useState<string>("");
@@ -72,41 +74,41 @@ export default function PassengerHomeScreen() {
   };
 
   const findNearbyStops = async () => {
-    if (!fromCoords) {
-      Alert.alert(
-        "Error",
-        "Please enter 'From' address or use current location."
-      );
-      return;
-    }
-
-    if (!toCoords) {
-      Alert.alert("Error", "Please enter 'To' address.");
-      return;
-    }
-
     setLoading(true);
     try {
-      let { latitude: lat, longitude: lng } = fromCoords;
+      let resolvedFromCoords = fromCoords;
+      let resolvedToCoords = toCoords;
 
-      if (fromAddress && !fromCoords) {
+      if (fromAddress && !resolvedFromCoords) {
         const geoData = await geocodeAddress(fromAddress);
         if (geoData) {
-          lat = geoData.latitude;
-          lng = geoData.longitude;
+          resolvedFromCoords = geoData;
           setFromCoords(geoData);
         }
       }
 
-      if (toAddress && !toCoords) {
+      if (toAddress && !resolvedToCoords) {
         const geoData = await geocodeAddress(toAddress);
-        if (geoData) setToCoords(geoData);
+        if (geoData) {
+          resolvedToCoords = geoData;
+          setToCoords(geoData);
+        }
+      }
+
+      if (!resolvedFromCoords) {
+        Alert.alert("Error", "Please enter a starting location.");
+        return;
+      }
+
+      if (!resolvedToCoords) {
+        Alert.alert("Error", "Please enter a destination.");
+        return;
       }
 
       const response = await api.get("/buses/bus_stops", {
         params: {
-          latitude: lat,
-          longitude: lng,
+          latitude: resolvedFromCoords.latitude,
+          longitude: resolvedFromCoords.longitude,
           radius: 5000,
           city: "Coimbatore",
         },
@@ -116,8 +118,8 @@ export default function PassengerHomeScreen() {
         params: {
           fromAddress,
           stops: JSON.stringify(response.data || []),
-          fromCoords: JSON.stringify(fromCoords),
-          toCoords: JSON.stringify(toCoords),
+          fromCoords: JSON.stringify(resolvedFromCoords),
+          toCoords: JSON.stringify(resolvedToCoords),
         },
       });
     } catch (err) {
@@ -186,7 +188,7 @@ export default function PassengerHomeScreen() {
             value={fromAddress}
             onChange={handleFromInputChange}
             suggestions={fromSuggestions}
-            placeholder="From Address"
+            placeholder={t("from")}
             onSelect={(coords, desc) => {
               setFromCoords(coords);
               setFromAddress(desc);
@@ -202,7 +204,7 @@ export default function PassengerHomeScreen() {
             value={toAddress}
             onChange={handleToInputChange}
             suggestions={toSuggestions}
-            placeholder="To Address"
+            placeholder={t("to")}
             onSelect={(coords, desc) => {
               setToCoords(coords);
               setToAddress(desc);
@@ -220,7 +222,7 @@ export default function PassengerHomeScreen() {
             onPressOut={() => setIsPressed(false)}
             activeOpacity={0.9}
           >
-            <Text style={styles.text}>Find Nearby Bus Stops</Text>
+            <Text style={styles.text}>{t("findStops")}</Text>
           </TouchableOpacity>
 
           {/* Map Section */}
@@ -254,14 +256,14 @@ export default function PassengerHomeScreen() {
             <TouchableOpacity style={styles.menuItem}>
               <Ionicons name="person-outline" size={20} color="#333" />
 
-              <Text style={styles.menuText}>User Profile</Text>
+              <Text style={styles.menuText}>{t("profile")}</Text>
             </TouchableOpacity>
 
             <View style={{ flex: 1 }} />
 
             <TouchableOpacity style={styles.menuItem} onPress={logout}>
               <Ionicons name="log-out-outline" size={25} color="red" />
-              <Text style={[styles.menuText, { color: "red" }]}>Logout</Text>
+              <Text style={[styles.menuText, { color: "red" }]}>{t("logout")}</Text>
             </TouchableOpacity>
           </Animated.View>
         </>

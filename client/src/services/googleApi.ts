@@ -2,7 +2,20 @@ import axios from "axios";
 import * as Location from 'expo-location';
 import { Alert } from 'react-native';
 import { Coordinates } from "../types";
-import { googleMapsApiKey, hasGoogleMapsApiKey } from "../config";
+import { googleMapsApiKey, hasGoogleMapsApiKey, useMockMaps } from "../config";
+
+const mockPlaces = [
+  { description: "Ukkadam Bus Stand, Coimbatore", place_id: "mock-ukkadam", coords: { latitude: 10.9629, longitude: 76.9402 } },
+  { description: "Kuniyamuthur Main Junction, Coimbatore", place_id: "mock-kuniyamuthur", coords: { latitude: 10.9579, longitude: 76.9541 } },
+  { description: "Gandhipuram Bus Stand, Coimbatore", place_id: "mock-gandhipuram", coords: { latitude: 11.0076, longitude: 76.9611 } },
+  { description: "Peelamedu Market, Coimbatore", place_id: "mock-peelamedu", coords: { latitude: 10.9809, longitude: 76.9537 } },
+  { description: "Race Course, Coimbatore", place_id: "mock-race-course", coords: { latitude: 10.9876, longitude: 76.9624 } },
+];
+
+const findMockPlace = (address: string) => {
+  const normalizedAddress = address.toLowerCase();
+  return mockPlaces.find((place) => normalizedAddress.includes(place.description.split(",")[0].toLowerCase())) || mockPlaces[0];
+};
 
 const getApiKey = () => {
   if (!googleMapsApiKey) {
@@ -12,6 +25,8 @@ const getApiKey = () => {
 };
 
 export const geocodeAddress = async (address: string): Promise<Coordinates | null> => {
+  if (useMockMaps || !hasGoogleMapsApiKey) return findMockPlace(address).coords;
+
   try {
     const response = await axios.get(
       `https://maps.googleapis.com/maps/api/geocode/json`,
@@ -33,7 +48,12 @@ export const geocodeAddress = async (address: string): Promise<Coordinates | nul
 };
 
 export const fetchPlaceSuggestions = async (input: string) => {
-  if (!hasGoogleMapsApiKey) return [];
+  if (useMockMaps || !hasGoogleMapsApiKey) {
+    const normalizedInput = input.toLowerCase();
+    return mockPlaces
+      .filter((place) => place.description.toLowerCase().includes(normalizedInput))
+      .map(({ description, place_id }) => ({ description, place_id }));
+  }
 
   try {
     const response = await axios.get(

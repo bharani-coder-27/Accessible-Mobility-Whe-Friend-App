@@ -5,3 +5,4 @@ export const socketUrl =
   process.env.EXPO_PUBLIC_SOCKET_URL?.trim() || apiBaseUrl.replace(/\/api\/?$/, "");
 export const googleMapsApiKey = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY?.trim() || "";
 export const hasGoogleMapsApiKey = googleMapsApiKey.length > 0;
+export const useMockMaps = process.env.EXPO_PUBLIC_USE_MOCK_MAPS !== "false";

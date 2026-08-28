@@ -26,6 +26,7 @@ import { AuthProvider, AuthContext } from "../src/contexts/AuthContext";
 import { ActivityIndicator, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler"; // <-- import this
 import Toast from 'react-native-toast-message';
+import { LanguageProvider } from "../src/contexts/LanguageContext";
 
 function RootNavigator() {
   const { user, loading } = useContext(AuthContext);
@@ -62,8 +63,10 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <AuthProvider>
-        <RootNavigator />
+        <LanguageProvider>
+          <RootNavigator />
           <Toast position="top" topOffset={20} /> 
+        </LanguageProvider>
       </AuthProvider>
     </GestureHandlerRootView>
   );
