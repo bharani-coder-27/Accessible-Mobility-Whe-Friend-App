@@ -2,7 +2,7 @@ import axios from "axios";
 import * as Location from 'expo-location';
 import { Alert } from 'react-native';
 import { Coordinates } from "../types";
-import { googleMapsApiKey } from "../config";
+import { googleMapsApiKey, hasGoogleMapsApiKey } from "../config";
 
 const getApiKey = () => {
   if (!googleMapsApiKey) {
@@ -33,28 +33,42 @@ export const geocodeAddress = async (address: string): Promise<Coordinates | nul
 };
 
 export const fetchPlaceSuggestions = async (input: string) => {
-  const response = await axios.get(
-    `https://maps.googleapis.com/maps/api/place/autocomplete/json`,
-    {
-      params: {
-        input,
-        key: getApiKey(),
-        language: "en",
-        components: "country:in",
-        location: "11.016844,76.955832",
-        radius: 50000,
-      },
-    }
-  );
-  return response.data.predictions;
+  if (!hasGoogleMapsApiKey) return [];
+
+  try {
+    const response = await axios.get(
+      `https://maps.googleapis.com/maps/api/place/autocomplete/json`,
+      {
+        params: {
+          input,
+          key: getApiKey(),
+          language: "en",
+          components: "country:in",
+          location: "11.016844,76.955832",
+          radius: 50000,
+        },
+      }
+    );
+    return response.data.predictions || [];
+  } catch (error) {
+    console.error("Error fetching place suggestions:", error);
+    return [];
+  }
 };
 
 export const fetchPlaceDetails = async (placeId: string) => {
-  const response = await axios.get(
-    `https://maps.googleapis.com/maps/api/place/details/json`,
-    { params: { place_id: placeId, key: getApiKey(), fields: "geometry" } }
-  );
-  return response.data.result.geometry.location;
+  if (!hasGoogleMapsApiKey) return null;
+
+  try {
+    const response = await axios.get(
+      `https://maps.googleapis.com/maps/api/place/details/json`,
+      { params: { place_id: placeId, key: getApiKey(), fields: "geometry" } }
+    );
+    return response.data.result.geometry.location;
+  } catch (error) {
+    console.error("Error fetching place details:", error);
+    return null;
+  }
 };
 
 // Function to get current location and optional reverse geocoded address

@@ -5,7 +5,7 @@ import * as Location from 'expo-location';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import axios from 'axios';
 import { MaterialIcons } from '@expo/vector-icons';
-import { googleMapsApiKey } from '../../src/config';
+import { googleMapsApiKey, hasGoogleMapsApiKey } from '../../src/config';
 
 interface Coordinates {
   latitude: number;
@@ -128,6 +128,11 @@ const TrackingScreen: React.FC = () => {
 
   // Fetch directions for transit mode only
   const fetchDirections = async (startLat: number, startLng: number): Promise<boolean> => {
+    if (!hasGoogleMapsApiKey) {
+      console.warn('Google Maps API key is not configured; skipping directions request.');
+      return false;
+    }
+
     if (isNaN(startLat) || isNaN(startLng) || isNaN(parsedDestLat) || isNaN(parsedDestLng)) {
       console.error('Invalid coordinates:', { startLat, startLng, parsedDestLat, parsedDestLng });
       Alert.alert('Error', 'Invalid coordinates for route calculation.');
