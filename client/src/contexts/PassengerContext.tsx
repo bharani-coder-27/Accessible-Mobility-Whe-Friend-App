@@ -9,6 +9,7 @@ import api from "../services/api";
 import { AuthContext } from "./AuthContext";
 import { io, Socket } from "socket.io-client";
 import Toast from "react-native-toast-message"; // optional toast popup
+import { socketUrl } from "../config";
 
 // Notification type from backend
 export type Notification = {
@@ -27,14 +28,14 @@ export type Passenger = Notification;
 
 type PassengerContextType = {
   passengers: Passenger[];
-  fetchPassengers: () => void;
-  updateStatus: (id: number) => void;
+  fetchPassengers: () => Promise<void>;
+  updateStatus: (id: number) => Promise<void>;
 };
 
 export const PassengerContext = createContext<PassengerContextType>({
   passengers: [],
-  fetchPassengers: () => {},
-  updateStatus: () => {},
+  fetchPassengers: async () => {},
+  updateStatus: async () => {},
 });
 
 let socket: Socket | null = null;
@@ -136,7 +137,7 @@ export const PassengerProvider = ({ children }: { children: ReactNode }) => {
     if (!user?.bus_id) return;
 
     // Step 1: connect socket
-    socket = io("http://10.24.183.189:8801"); // replace with your backend IP
+    socket = io(socketUrl);
 
     socket.on("connect", () => {
       console.log("✅ Socket connected:", socket?.id);

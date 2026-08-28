@@ -2,14 +2,20 @@ import axios from "axios";
 import * as Location from 'expo-location';
 import { Alert } from 'react-native';
 import { Coordinates } from "../types";
+import { googleMapsApiKey } from "../config";
 
-const API_KEY = "AIzaSyB7eC-j0tdLxX6-xAoHApv68JrEXA-j4lo";
+const getApiKey = () => {
+  if (!googleMapsApiKey) {
+    throw new Error('EXPO_PUBLIC_GOOGLE_MAPS_API_KEY is not configured');
+  }
+  return googleMapsApiKey;
+};
 
 export const geocodeAddress = async (address: string): Promise<Coordinates | null> => {
   try {
     const response = await axios.get(
       `https://maps.googleapis.com/maps/api/geocode/json`,
-      { params: { address, key: API_KEY, region: "in" } }
+      { params: { address, key: getApiKey(), region: "in" } }
     );
 
     if (response.data.status === "OK") {
@@ -32,7 +38,7 @@ export const fetchPlaceSuggestions = async (input: string) => {
     {
       params: {
         input,
-        key: API_KEY,
+        key: getApiKey(),
         language: "en",
         components: "country:in",
         location: "11.016844,76.955832",
@@ -46,7 +52,7 @@ export const fetchPlaceSuggestions = async (input: string) => {
 export const fetchPlaceDetails = async (placeId: string) => {
   const response = await axios.get(
     `https://maps.googleapis.com/maps/api/place/details/json`,
-    { params: { place_id: placeId, key: API_KEY, fields: "geometry" } }
+    { params: { place_id: placeId, key: getApiKey(), fields: "geometry" } }
   );
   return response.data.result.geometry.location;
 };

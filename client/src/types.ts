@@ -1,5 +1,5 @@
 export interface BusStop {
-  id: string;
+  id: number;
   stop_name: string;
   latitude: number;
   longitude: number;
@@ -7,11 +7,11 @@ export interface BusStop {
 }
 
 export interface BusTiming {
-  bus_id: string;
+  bus_id: number;
   bus_name: string;
   arrival_time: string;
   trip_code: string;
-  wheelchair_accessible: number;
+  wheelchair_accessible: boolean;
 }
 
 export interface Coordinates {
@@ -25,7 +25,7 @@ export interface PlaceSuggestion {
 }
 
 export interface AuthUser {
-  id: string;
+  id: number;
   name?: string;
 }
 

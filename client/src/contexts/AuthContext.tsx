@@ -6,7 +6,7 @@ import api from "../services/api";
 
 
 type User = {
-  id: string; // Keep as string to match your existing code
+  id: number;
   name: string;
   email: string;
   phone_number: string;
