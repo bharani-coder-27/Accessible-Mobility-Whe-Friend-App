@@ -263,7 +263,7 @@ export default function PassengerHomeScreen() {
 
             <TouchableOpacity style={styles.menuItem} onPress={logout}>
               <Ionicons name="log-out-outline" size={25} color="red" />
-              <Text style={[styles.menuText, { color: "red" }]}>{t("logout")}</Text>
+              <Text style={[styles.menuText, { color: "red" }]}>{t("signOut")}</Text>
             </TouchableOpacity>
           </Animated.View>
         </>

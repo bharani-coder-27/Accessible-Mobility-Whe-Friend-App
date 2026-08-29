@@ -58,7 +58,7 @@ export default function LoginScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}><FontAwesome name="sign-in" size={28} color="#2c3e50" /> {t("welcome")}</Text>
+      <Text style={styles.title}><FontAwesome name="sign-in" size={28} color="#2c3e50" /> {t("signInTitle")}</Text>
       <View style={styles.languageRow}>
         {(["en", "ta", "hi"] as const).map((item) => (
           <TouchableOpacity key={item} onPress={() => setLanguage(item)} style={[styles.language, language === item && styles.languageActive]}>

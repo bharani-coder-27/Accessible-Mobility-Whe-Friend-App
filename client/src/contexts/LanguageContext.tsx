@@ -1,17 +1,34 @@
-import React, { createContext, ReactNode, useContext, useEffect, useState } from "react";
+import React, {
+  createContext,
+  ReactNode,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import { getFromStorage, saveToStorage } from "../utils/storage";
-import { Language, translate, TranslationKey } from "../i18n";
+import {
+  Language,
+  supportedLanguages,
+  translate,
+  TranslateParams,
+  TranslationKey,
+} from "../i18n";
 
 type LanguageContextValue = {
   language: Language;
   setLanguage: (language: Language) => void;
-  t: (key: TranslationKey) => string;
+  t: (key: TranslationKey, params?: TranslateParams) => string;
 };
+
+const isSupported = (value: unknown): value is Language =>
+  typeof value === "string" && (supportedLanguages as string[]).includes(value);
 
 const LanguageContext = createContext<LanguageContextValue>({
   language: "en",
   setLanguage: () => {},
-  t: (key) => translate("en", key),
+  t: (key, params) => translate("en", key, params),
 });
 
 export const LanguageProvider = ({ children }: { children: ReactNode }) => {
@@ -19,20 +36,25 @@ export const LanguageProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     getFromStorage<Language>("language").then((stored) => {
-      if (stored === "en" || stored === "ta" || stored === "hi") setLanguageState(stored);
+      if (isSupported(stored)) setLanguageState(stored);
     });
   }, []);
 
-  const setLanguage = (nextLanguage: Language) => {
-    setLanguageState(nextLanguage);
-    saveToStorage("language", nextLanguage);
-  };
+  const setLanguage = useCallback((next: Language) => {
+    setLanguageState(next);
+    saveToStorage("language", next);
+  }, []);
 
-  return (
-    <LanguageContext.Provider value={{ language, setLanguage, t: (key) => translate(language, key) }}>
-      {children}
-    </LanguageContext.Provider>
+  const value = useMemo<LanguageContextValue>(
+    () => ({
+      language,
+      setLanguage,
+      t: (key, params) => translate(language, key, params),
+    }),
+    [language, setLanguage]
   );
+
+  return <LanguageContext.Provider value={value}>{children}</LanguageContext.Provider>;
 };
 
 export const useLanguage = () => useContext(LanguageContext);
