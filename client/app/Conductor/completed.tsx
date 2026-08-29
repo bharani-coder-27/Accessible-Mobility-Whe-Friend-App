@@ -1,12 +1,6 @@
 import React from 'react';
-import PassengerList from '../components/PassengerList';
-import { View } from 'react-native';
-import Header from '../components/Header';
+import { PassengerList } from '../../src/components/PassengerList';
 
 export default function CompletedScreen() {
-  return (
-    <View style={{ backgroundColor: '#f8f8f8ff', flex: 1 }}>
-      <PassengerList status="completed" />
-    </View>
-  );
+  return <PassengerList status="completed" />;
 }

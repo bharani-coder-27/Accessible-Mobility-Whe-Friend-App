@@ -1,187 +1,190 @@
 import React, {
   createContext,
   ReactNode,
-  useState,
-  useEffect,
+  useCallback,
   useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
 } from "react";
+import { io, Socket } from "socket.io-client";
+import Toast from "react-native-toast-message";
+
 import api from "../services/api";
 import { AuthContext } from "./AuthContext";
-import { io, Socket } from "socket.io-client";
-import Toast from "react-native-toast-message"; // optional toast popup
+import { useLanguage } from "./LanguageContext";
+import { getSocketUrl } from "../services/serverConfig";
 
-// Notification type from backend
-export type Notification = {
+export type PassengerStatus = "waiting" | "traveling" | "completed";
+
+/** A passenger the conductor is responsible for on this bus. */
+export type Passenger = {
   id: number;
   bus_id: number;
-  bus_stop_id: number;
+  bus_stop_id: number | null;
   user_id: number;
-  timing: string;
-  status: "waiting" | "traveling" | "completed";
+  timing: string | null;
+  status: PassengerStatus;
   message: string;
-  bus_stop_name: string;
+  bus_stop_name: string | null;
   passenger_name: string;
 };
 
-export type Passenger = Notification;
-
 type PassengerContextType = {
   passengers: Passenger[];
-  fetchPassengers: () => void;
-  updateStatus: (id: number) => void;
+  loading: boolean;
+  failed: boolean;
+  /** The id currently being advanced, so the row can show progress. */
+  updatingId: number | null;
+  fetchPassengers: () => Promise<void>;
+  updateStatus: (id: number) => Promise<void>;
 };
 
 export const PassengerContext = createContext<PassengerContextType>({
   passengers: [],
-  fetchPassengers: () => {},
-  updateStatus: () => {},
+  loading: true,
+  failed: false,
+  updatingId: null,
+  fetchPassengers: async () => {},
+  updateStatus: async () => {},
 });
 
-let socket: Socket | null = null;
-
 export const PassengerProvider = ({ children }: { children: ReactNode }) => {
-  const { user, token } = useContext(AuthContext);
-  const [passengers, setPassengers] = useState<Passenger[]>([]);
+  const { user } = useContext(AuthContext);
+  const { t } = useLanguage();
 
-  // 🔹 Fetch all passengers once (initial load)
-  const fetchPassengers = async () => {
-    if (!user?.bus_id) return;
+  const [passengers, setPassengers] = useState<Passenger[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [failed, setFailed] = useState(false);
+  const [updatingId, setUpdatingId] = useState<number | null>(null);
+
+  const busId = user?.bus_id ?? null;
+  const socketRef = useRef<Socket | null>(null);
+
+  const fetchPassengers = useCallback(async () => {
+    if (!busId) {
+      setPassengers([]);
+      setLoading(false);
+      return;
+    }
+
     try {
-      const res = await api.get<Passenger[]>(
-        `/notify/conductor/${user.bus_id}`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
-      setPassengers(res.data);
+      // Authorization is attached by the axios interceptor; it used to be
+      // passed by hand here and forgotten in other calls to the same API.
+      const { data } = await api.get<Passenger[]>(`/notify/conductor/${busId}`);
+      setPassengers(Array.isArray(data) ? data : []);
+      setFailed(false);
     } catch (err) {
       console.error("Fetch passengers error:", err);
-      setPassengers([]);
+      setFailed(true);
+    } finally {
+      setLoading(false);
     }
-  };
+  }, [busId]);
 
-  // 🔹 Update status from waiting -> traveling -> completed
-  // inside PassengerProvider in PassengerContext.tsx
+  /**
+   * Advance one passenger: waiting → traveling → completed.
+   *
+   * The local row is only updated after the request succeeds. The previous
+   * version moved the row optimistically and never rolled back, so a failed
+   * request left the conductor's screen claiming a journey had started when
+   * the passenger had been told nothing.
+   */
+  const updateStatus = useCallback(
+    async (id: number) => {
+      const passenger = passengers.find((item) => item.id === id);
+      if (!passenger || updatingId !== null) return;
 
-  const updateStatus = async (id: number) => {
-    try {
-      const passenger = passengers.find((p) => p.id === id);
-      if (!passenger) return;
-
-      // Determine the next action based on current status
-      if (passenger.status === "waiting") {
-        // ✅ Start travel → send push notification for confirmation
-        await api.post(
-          `/notify/startTravel`,
-          {
+      setUpdatingId(id);
+      try {
+        if (passenger.status === "waiting") {
+          await api.post("/notify/startTravel", {
             bus_id: passenger.bus_id,
             user_id: passenger.user_id,
-          },
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
+          });
+          await api.put("/notify/markseen", {
+            notification_id: id,
+            bus_id: passenger.bus_id,
+          });
 
-        await api.put(
-          `/notify/markseen`,
-          { notification_id: id, bus_id: passenger.bus_id },
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-
-        Toast.show({
-          type: "info",
-          text1: "🚌 Travel Started",
-          text2: `Confirmation request sent to ${passenger.passenger_name}`,
-          position: "top",
-        });
-
-        // Locally update status to traveling
-        setPassengers((prev) =>
-          prev.map((p) => (p.id === id ? { ...p, status: "traveling" } : p))
-        );
-      } else if (passenger.status === "traveling") {
-        // ✅ Complete travel → send completion notification
-        await api.post(
-          `/notify/completeTravel`,
-          {
+          setPassengers((prev) =>
+            prev.map((item) => (item.id === id ? { ...item, status: "traveling" } : item))
+          );
+          Toast.show({
+            type: "info",
+            text1: t("travelStartedToast", { name: passenger.passenger_name }),
+          });
+        } else if (passenger.status === "traveling") {
+          await api.post("/notify/completeTravel", {
             bus_id: passenger.bus_id,
             user_id: passenger.user_id,
-          },
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
+          });
 
-        Toast.show({
-          type: "success",
-          text1: "✅ Travel Completed",
-          text2: `${passenger.passenger_name} notified successfully`,
-          position: "top",
-        });
-
-        // Locally update status to completed
-        setPassengers((prev) =>
-          prev.map((p) => (p.id === id ? { ...p, status: "completed" } : p))
-        );
+          setPassengers((prev) =>
+            prev.map((item) => (item.id === id ? { ...item, status: "completed" } : item))
+          );
+          Toast.show({
+            type: "success",
+            text1: t("travelCompletedToast", { name: passenger.passenger_name }),
+          });
+        }
+      } catch (err) {
+        console.error("Update status error:", err);
+        Toast.show({ type: "error", text1: t("updateStatusFailed") });
+      } finally {
+        setUpdatingId(null);
       }
-    } catch (err) {
-      console.error("Update status error:", err);
-      Toast.show({
-        type: "error",
-        text1: "Error updating travel status",
-        text2: "Please try again.",
-        position: "top",
-      });
-    }
-  };
+    },
+    [passengers, updatingId, t]
+  );
 
-  // 🔹 Setup socket connection for real-time updates
+  // Live updates for this bus.
   useEffect(() => {
-    if (!user?.bus_id) return;
+    if (!busId) return;
 
-    // Step 1: connect socket
-    socket = io("http://10.24.183.189:8801"); // replace with your backend IP
+    // Resolved here rather than at module load, so a server changed in
+    // Settings takes effect without restarting the app.
+    const socket = io(getSocketUrl(), { transports: ["websocket"] });
+    socketRef.current = socket;
 
-    socket.on("connect", () => {
-      console.log("✅ Socket connected:", socket?.id);
-      socket?.emit("joinBusRoom", { bus_id: user.bus_id }); // join the correct bus room
-    });
+    const joinRoom = () => socket.emit("joinBusRoom", { bus_id: busId });
 
-    // Step 2: listen for new notification
-    socket.on("receiveNotification", (data: Passenger) => {
-      console.log("📩 New real-time passenger:", data);
+    // Re-join on every connect, not just the first: after a dropped
+    // connection the server has forgotten the room membership, and without
+    // this the conductor silently stops receiving new passengers.
+    socket.on("connect", joinRoom);
 
-      // Show optional toast popup
+    socket.on("receiveNotification", (incoming: Passenger) => {
+      setPassengers((prev) =>
+        prev.some((item) => item.id === incoming.id) ? prev : [incoming, ...prev]
+      );
+
       Toast.show({
         type: "info",
-        text1: "🧍 New Passenger Booked",
-        text2: `${data.passenger_name} at ${data.bus_stop_name}`,
-        position: "top",
-        topOffset: 80,
-        visibilityTime: 4000,
-      });
-
-      // Step 3: update list without refetching
-      setPassengers((prev) => {
-        const alreadyExists = prev.some((p) => p.id === data.id);
-        if (alreadyExists) return prev;
-        return [...prev, data];
+        text1: t("newPassengerToast", {
+          name: incoming.passenger_name,
+          stop: incoming.bus_stop_name ?? "",
+        }),
       });
     });
 
-    // Step 4: cleanup
     return () => {
-      socket?.off("receiveNotification");
-      socket?.disconnect();
+      socket.off("connect", joinRoom);
+      socket.off("receiveNotification");
+      socket.disconnect();
+      socketRef.current = null;
     };
-  }, [user]);
+  }, [busId, t]);
 
-  // Fetch once when user logs in
   useEffect(() => {
     fetchPassengers();
-  }, [user]);
+  }, [fetchPassengers]);
 
-  return (
-    <PassengerContext.Provider
-      value={{ passengers, fetchPassengers, updateStatus }}
-    >
-      {children}
-    </PassengerContext.Provider>
+  const value = useMemo<PassengerContextType>(
+    () => ({ passengers, loading, failed, updatingId, fetchPassengers, updateStatus }),
+    [passengers, loading, failed, updatingId, fetchPassengers, updateStatus]
   );
+
+  return <PassengerContext.Provider value={value}>{children}</PassengerContext.Provider>;
 };

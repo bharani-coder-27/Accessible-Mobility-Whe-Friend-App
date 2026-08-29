@@ -1,24 +1,75 @@
-import { Stack } from "expo-router";
+import React from "react";
+import { Tabs } from "expo-router";
+import Ionicons from "@expo/vector-icons/Ionicons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useLanguage } from "../../src/contexts/LanguageContext";
+import { useTheme } from "../../src/theme";
 
-export default function RootLayout() {
+export default function PassengerLayout() {
+  const theme = useTheme();
+  const { t } = useLanguage();
+  const insets = useSafeAreaInsets();
+
   return (
-    <Stack>
-      <Stack.Screen
+    <Tabs
+      screenOptions={{
+        headerShown: false,
+        tabBarActiveTintColor: theme.colors.primaryText,
+        tabBarInactiveTintColor: theme.colors.textMuted,
+        tabBarStyle: {
+          // The gesture bar / navigation buttons sit below the tab bar, so the
+          // bottom inset is added rather than assumed to be zero. Without this
+          // the labels sit underneath the system navigation on most phones.
+          height: 64 + insets.bottom,
+          paddingBottom: 8 + insets.bottom,
+          paddingTop: 8,
+          backgroundColor: theme.colors.surface,
+          borderTopWidth: theme.highContrast ? 2 : 1,
+          borderTopColor: theme.colors.border,
+        },
+        tabBarLabelStyle: {
+          fontFamily: theme.fontFamily.medium,
+          fontSize: theme.size("caption"),
+        },
+      }}
+    >
+      <Tabs.Screen
         name="index"
-        options={{ title: 'Home', headerShown: false }}
+        options={{
+          title: t("home"),
+          tabBarIcon: ({ color, size }) => <Ionicons name="map" size={size} color={color} />,
+        }}
       />
-      <Stack.Screen
-        name="TrackingScreen"
-        options={{ title: 'Track Your Journey', headerShown: false }}
+      <Tabs.Screen
+        name="trips"
+        options={{
+          title: t("myTrips"),
+          tabBarIcon: ({ color, size }) => <Ionicons name="time" size={size} color={color} />,
+        }}
       />
-      <Stack.Screen
+      <Tabs.Screen
+        name="account"
+        options={{
+          title: t("account"),
+          tabBarIcon: ({ color, size }) => <Ionicons name="person" size={size} color={color} />,
+        }}
+      />
+
+      {/* Steps of the booking flow. They are reachable only by pushing from the
+          planner, and hide the tab bar so nothing invites the user to abandon a
+          half-finished booking by tapping another tab. */}
+      <Tabs.Screen
         name="NearbyStopsModal"
-        options={{ title: 'NearByStops', headerShown: false}}
+        options={{ href: null, tabBarStyle: { display: "none" } }}
       />
-      <Stack.Screen
+      <Tabs.Screen
         name="BusTimingsList"
-        options={{ title: 'Bus Timings', headerShown: false}}
+        options={{ href: null, tabBarStyle: { display: "none" } }}
       />
-    </Stack>
+      <Tabs.Screen
+        name="TrackingScreen"
+        options={{ href: null, tabBarStyle: { display: "none" } }}
+      />
+    </Tabs>
   );
-};
+}

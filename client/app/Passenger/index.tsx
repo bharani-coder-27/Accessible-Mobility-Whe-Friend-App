@@ -1,353 +1,275 @@
-import React, { useState, useContext, useRef } from "react";
+import React, { useCallback, useEffect, useState } from "react";
+import { View } from "react-native";
+import { router } from "expo-router";
+import Toast from "react-native-toast-message";
+
+import { Coordinates, PlaceSuggestion } from "../../src/types";
+import { useLanguage } from "../../src/contexts/LanguageContext";
+import { useTheme } from "../../src/theme";
+import { useDebouncedValue } from "../../src/hooks/useDebouncedValue";
+import api, { errorMessage } from "../../src/services/api";
 import {
-  View,
-  Text,
-  TouchableOpacity,
-  KeyboardAvoidingView,
-  Platform,
-  Alert,
-  Image,
-  StyleSheet,
-  Dimensions,
-  Animated,
-} from "react-native";
-import { AuthContext } from "../../src/contexts/AuthContext";
-import {
-  Coordinates,
-  BusStop,
-  AuthContextType,
-} from "../../src/types";
-import LocationInput from "./passComponents/LocationInput";
-import MapSection from "./passComponents/MapSection";
-import LoadingOverlay from "./passComponents/LoadingOverlay";
-import api from "../../src/services/api";
-import {
-  geocodeAddress,
   fetchPlaceSuggestions,
+  geocodeAddress,
   getCurrentLocation,
 } from "../../src/services/googleApi";
-import { router } from "expo-router";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { images } from "../../constants/images";
-import Ionicons from "@expo/vector-icons/Ionicons";
+import LocationInput from "../../src/components/passenger/LocationInput";
+import MapSection from "../../src/components/passenger/MapSection";
+import {
+  AppBar,
+  Button,
+  Card,
+  IconButton,
+  Screen,
+  StepIndicator,
+  Text,
+} from "../../src/components/ui";
 
-const { width } = Dimensions.get("window");
+const SEARCH_RADIUS_METRES = 5000;
 
 export default function PassengerHomeScreen() {
-  const { logout, user } = useContext(AuthContext) as AuthContextType;
+  const { t } = useLanguage();
+  const theme = useTheme();
 
-  const [fromAddress, setFromAddress] = useState<string>("");
-  const [toAddress, setToAddress] = useState<string>("");
+  const [fromAddress, setFromAddress] = useState("");
+  const [toAddress, setToAddress] = useState("");
   const [fromCoords, setFromCoords] = useState<Coordinates | null>(null);
   const [toCoords, setToCoords] = useState<Coordinates | null>(null);
-  const [nearbyStops, setNearbyStops] = useState<BusStop[]>([]);
-  const [selectedStop, setSelectedStop] = useState<BusStop | null>(null);
-  const [fromSuggestions, setFromSuggestions] = useState<any[]>([]);
-  const [toSuggestions, setToSuggestions] = useState<any[]>([]);
-  const [loading, setLoading] = useState<boolean>(false);
-  const [isPressed, setIsPressed] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [fromSuggestions, setFromSuggestions] = useState<PlaceSuggestion[]>([]);
+  const [toSuggestions, setToSuggestions] = useState<PlaceSuggestion[]>([]);
+  const [errors, setErrors] = useState<{ from?: string; to?: string }>({});
+  const [searching, setSearching] = useState(false);
 
-  // Animation refs
-  const slideAnim = useRef(new Animated.Value(-width * 0.7)).current;
-  const overlayAnim = useRef(new Animated.Value(0)).current;
+  // Only the field the user is actively editing should query for suggestions,
+  // otherwise selecting a starting point re-opens the destination list.
+  const [activeField, setActiveField] = useState<"from" | "to" | null>(null);
+  const debouncedFrom = useDebouncedValue(fromAddress);
+  const debouncedTo = useDebouncedValue(toAddress);
 
-  // ----------------- Handlers -----------------
-  const handleUseCurrentLocation = async () => {
+  useEffect(() => {
+    if (activeField !== "from" || debouncedFrom.trim().length < 2) {
+      setFromSuggestions([]);
+      return;
+    }
+
+    let cancelled = false;
+    fetchPlaceSuggestions(debouncedFrom).then((results) => {
+      if (!cancelled) setFromSuggestions(results);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [debouncedFrom, activeField]);
+
+  useEffect(() => {
+    if (activeField !== "to" || debouncedTo.trim().length < 2) {
+      setToSuggestions([]);
+      return;
+    }
+
+    let cancelled = false;
+    fetchPlaceSuggestions(debouncedTo).then((results) => {
+      if (!cancelled) setToSuggestions(results);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [debouncedTo, activeField]);
+
+  const handleUseCurrentLocation = useCallback(async () => {
     const result = await getCurrentLocation();
     if (!result) return;
+
     setFromCoords(result.coords);
     if (result.address) setFromAddress(result.address);
+    setActiveField(null);
+    setFromSuggestions([]);
+    setErrors((prev) => ({ ...prev, from: undefined }));
+  }, []);
+
+  const selectSuggestion = async (field: "from" | "to", description: string) => {
+    const coords = await geocodeAddress(description);
+
+    if (field === "from") {
+      setFromAddress(description);
+      setFromCoords(coords);
+      setFromSuggestions([]);
+      setErrors((prev) => ({ ...prev, from: undefined }));
+    } else {
+      setToAddress(description);
+      setToCoords(coords);
+      setToSuggestions([]);
+      setErrors((prev) => ({ ...prev, to: undefined }));
+    }
+
+    setActiveField(null);
   };
 
-  const handleFromInputChange = async (text: string) => {
-    setFromAddress(text);
-    if (text.length === 0) return setFromSuggestions([]);
-    const suggestions = await fetchPlaceSuggestions(text);
-    setFromSuggestions(suggestions);
-  };
-
-  const handleToInputChange = async (text: string) => {
-    setToAddress(text);
-    if (text.length === 0) return setToSuggestions([]);
-    const suggestions = await fetchPlaceSuggestions(text);
-    setToSuggestions(suggestions);
+  /** Swap the two endpoints, including whatever coordinates are resolved. */
+  const swapEndpoints = () => {
+    setFromAddress(toAddress);
+    setToAddress(fromAddress);
+    setFromCoords(toCoords);
+    setToCoords(fromCoords);
+    setActiveField(null);
+    setFromSuggestions([]);
+    setToSuggestions([]);
   };
 
   const findNearbyStops = async () => {
-    if (!fromCoords) {
-      Alert.alert(
-        "Error",
-        "Please enter 'From' address or use current location."
-      );
-      return;
-    }
-
-    if (!toCoords) {
-      Alert.alert("Error", "Please enter 'To' address.");
-      return;
-    }
-
-    setLoading(true);
+    setSearching(true);
     try {
-      let { latitude: lat, longitude: lng } = fromCoords;
+      // The user may have typed an address without picking a suggestion, so
+      // resolve anything still missing before deciding the form is incomplete.
+      let resolvedFrom = fromCoords;
+      let resolvedTo = toCoords;
 
-      if (fromAddress && !fromCoords) {
-        const geoData = await geocodeAddress(fromAddress);
-        if (geoData) {
-          lat = geoData.latitude;
-          lng = geoData.longitude;
-          setFromCoords(geoData);
-        }
+      if (fromAddress.trim() && !resolvedFrom) {
+        resolvedFrom = await geocodeAddress(fromAddress);
+        setFromCoords(resolvedFrom);
+      }
+      if (toAddress.trim() && !resolvedTo) {
+        resolvedTo = await geocodeAddress(toAddress);
+        setToCoords(resolvedTo);
       }
 
-      if (toAddress && !toCoords) {
-        const geoData = await geocodeAddress(toAddress);
-        if (geoData) setToCoords(geoData);
-      }
+      const nextErrors = {
+        from: resolvedFrom ? undefined : t("needFrom"),
+        to: resolvedTo ? undefined : t("needTo"),
+      };
+      setErrors(nextErrors);
+      if (!resolvedFrom || !resolvedTo) return;
 
-      const response = await api.get("/buses/bus_stops", {
+      const { data } = await api.get("/buses/bus_stops", {
         params: {
-          latitude: lat,
-          longitude: lng,
-          radius: 5000,
+          latitude: resolvedFrom.latitude,
+          longitude: resolvedFrom.longitude,
+          radius: SEARCH_RADIUS_METRES,
           city: "Coimbatore",
         },
       });
-      setNearbyStops(response.data || []);
+
       router.push({
         pathname: "/Passenger/NearbyStopsModal",
         params: {
           fromAddress,
-          stops: JSON.stringify(response.data || []),
-          fromCoords: JSON.stringify(fromCoords),
-          toCoords: JSON.stringify(toCoords),
+          toAddress,
+          stops: JSON.stringify(data ?? []),
+          fromCoords: JSON.stringify(resolvedFrom),
+          toCoords: JSON.stringify(resolvedTo),
         },
       });
-    } catch (err) {
-      console.error(err);
-      Alert.alert("Error", "Could not fetch nearby bus stops.");
+    } catch (error) {
+      Toast.show({
+        type: "error",
+        text1: t("stopsError"),
+        text2: errorMessage(error, t("checkConnection")),
+      });
     } finally {
-      setLoading(false);
+      setSearching(false);
     }
   };
 
-  const toggleSidebar = () => {
-    if (sidebarOpen) {
-      Animated.parallel([
-        Animated.timing(slideAnim, {
-          toValue: -width * 0.7,
-          duration: 300,
-          useNativeDriver: false,
-        }),
-        Animated.timing(overlayAnim, {
-          toValue: 0,
-          duration: 300,
-          useNativeDriver: false,
-        }),
-      ]).start(() => setSidebarOpen(false));
-    } else {
-      setSidebarOpen(true);
-      Animated.parallel([
-        Animated.timing(slideAnim, {
-          toValue: 0,
-          duration: 300,
-          useNativeDriver: false,
-        }),
-        Animated.timing(overlayAnim, {
-          toValue: 0.5,
-          duration: 300,
-          useNativeDriver: false,
-        }),
-      ]).start();
-    }
-  };
-
-  // ----------------- Render -----------------
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#fff" }}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={toggleSidebar} style={{ padding: 6 }}>
-          <Ionicons name="menu" size={28} color="#000" />
-        </TouchableOpacity>
-        <View style={{ flexDirection: "row", marginLeft: 20 }}>
-          <Text style={styles.title}>Whe Friend</Text>
-          <Image
-            source={images.logo}
-            style={{ height: 28, width: 28, marginLeft: 10 }}
-          />
-        </View>
-      </View>
-
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-      >
-        <View style={{ padding: 20, paddingTop: 30 }}>
-          {/* From Input */}
-          <LocationInput
-            value={fromAddress}
-            onChange={handleFromInputChange}
-            suggestions={fromSuggestions}
-            placeholder="From Address"
-            onSelect={(coords, desc) => {
-              setFromCoords(coords);
-              setFromAddress(desc);
-              setFromSuggestions([]);
-            }}
-            useCurrentLocation={handleUseCurrentLocation}
-            zIndex={20} // keep default
-            box={false}
-          />
-
-          {/* To Input */}
-          <LocationInput
-            value={toAddress}
-            onChange={handleToInputChange}
-            suggestions={toSuggestions}
-            placeholder="To Address"
-            onSelect={(coords, desc) => {
-              setToCoords(coords);
-              setToAddress(desc);
-              setToSuggestions([]);
-            }}
-            zIndex={10} // keep default
-            box={true}
-          />
-
-          {/* Find Stops Button */}
-          <TouchableOpacity
-            style={[styles.button, isPressed && styles.buttonPressed]}
-            onPress={findNearbyStops}
-            onPressIn={() => setIsPressed(true)}
-            onPressOut={() => setIsPressed(false)}
-            activeOpacity={0.9}
-          >
-            <Text style={styles.text}>Find Nearby Bus Stops</Text>
-          </TouchableOpacity>
-
-          {/* Map Section */}
-          {fromCoords && (
-            <MapSection
-              fromCoords={fromCoords}
-              toCoords={toCoords}
-              nearbyStops={nearbyStops}
-              onStopPress={(stop) => setSelectedStop(stop)}
+    <Screen
+      scroll
+      padded={false}
+      edges={["top"]}
+      header={
+        <AppBar
+          title={t("appName")}
+          actions={
+            <IconButton
+              icon="settings-outline"
+              label={t("settings")}
+              onPress={() => router.push("/settings")}
             />
-          )}
+          }
+        />
+      }
+      contentStyle={{ paddingBottom: theme.spacing.xxxl }}
+    >
+      <View style={{ padding: theme.spacing.xl, gap: theme.spacing.xl }}>
+        <StepIndicator
+          steps={[t("stepPlan"), t("stepStop"), t("stepBus"), t("stepTrack")]}
+          current={0}
+        />
+
+        <View style={{ gap: theme.spacing.xs }}>
+          <Text variant="titleLg" weight="bold">
+            {t("planTitle")}
+          </Text>
+          <Text variant="body" tone="muted">
+            {t("planSubtitle")}
+          </Text>
         </View>
-      </KeyboardAvoidingView>
 
-      {/* Sidebar + Overlay */}
-      {sidebarOpen && (
-        <>
-          {/* Background overlay */}
-          <Animated.View style={[styles.overlay, { opacity: overlayAnim }]}>
-            <TouchableOpacity style={{ flex: 1 }} onPress={toggleSidebar} />
-          </Animated.View>
+        <Card style={{ gap: theme.spacing.lg }}>
+          <LocationInput
+            label={t("from")}
+            icon="radio-button-on-outline"
+            value={fromAddress}
+            onChange={(text) => {
+              setFromAddress(text);
+              setActiveField("from");
+              setFromCoords(null);
+            }}
+            suggestions={fromSuggestions}
+            onSelect={(description) => selectSuggestion("from", description)}
+            onUseCurrentLocation={handleUseCurrentLocation}
+            currentLocationLabel={t("currentLocation")}
+            resolved={!!fromCoords}
+            error={errors.from}
+          />
 
-          {/* Sidebar */}
-          <Animated.View style={[styles.sidebar, { left: slideAnim }]}>
-            <View style={{ flexDirection: 'row'}}>
-              <Image
-                source={images.profile}
-                style={{ height: 32, width: 32, borderRadius: 10 }}
-              />
-              <Text style={styles.userName}>{user?.name || "Passenger"}</Text>
-            </View>
+          <View style={{ alignItems: "flex-end" }}>
+            <IconButton
+              icon="swap-vertical"
+              label={t("swapLocations")}
+              tone="primary"
+              onPress={swapEndpoints}
+            />
+          </View>
 
-            <TouchableOpacity style={styles.menuItem}>
-              <Ionicons name="person-outline" size={20} color="#333" />
+          <LocationInput
+            label={t("to")}
+            icon="location-outline"
+            value={toAddress}
+            onChange={(text) => {
+              setToAddress(text);
+              setActiveField("to");
+              setToCoords(null);
+            }}
+            suggestions={toSuggestions}
+            onSelect={(description) => selectSuggestion("to", description)}
+            resolved={!!toCoords}
+            error={errors.to}
+          />
+        </Card>
 
-              <Text style={styles.menuText}>User Profile</Text>
-            </TouchableOpacity>
+        <Button
+          label={t("findStops")}
+          onPress={findNearbyStops}
+          loading={searching}
+          size="lg"
+          icon="search"
+          hint={t("selectStopHint")}
+        />
 
-            <View style={{ flex: 1 }} />
-
-            <TouchableOpacity style={styles.menuItem} onPress={logout}>
-              <Ionicons name="log-out-outline" size={25} color="red" />
-              <Text style={[styles.menuText, { color: "red" }]}>Logout</Text>
-            </TouchableOpacity>
-          </Animated.View>
-        </>
-      )}
-
-      <LoadingOverlay visible={loading} />
-    </SafeAreaView>
+        {fromCoords ? (
+          <MapSection
+            fromCoords={fromCoords}
+            toCoords={toCoords}
+            accessibilityLabel={t("mapRouteLabel", {
+              from: fromAddress || t("from"),
+              to: toAddress || t("to"),
+            })}
+            placeholderText={t("mapUnavailable")}
+          />
+        ) : null}
+      </View>
+    </Screen>
   );
 }
-
-const styles = StyleSheet.create({
-  header: {
-    height: 80,
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 20,
-    backgroundColor: "#fff",
-    paddingTop: 30,
-  },
-  title: {
-    color: "#000",
-    fontSize: 25,
-    fontWeight: "bold",
-    letterSpacing: 1,
-  },
-  overlay: {
-    position: "absolute",
-    top: 0,
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: "#000",
-    zIndex: 100, // above inputs
-  },
-  sidebar: {
-    position: "absolute",
-    top: 0,
-    bottom: 0,
-    width: width * 0.7,
-    backgroundColor: "#fff",
-    padding: 20,
-    paddingTop: 60,
-    zIndex: 101, // above overlay
-    elevation: 10,
-  },
-  userName: {
-    fontSize: 20,
-    fontWeight: "bold",
-    marginBottom: 30,
-    marginLeft: 5,
-  },
-  menuItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginVertical: 15,
-  },
-  menuText: {
-    marginLeft: 10,
-    fontSize: 16,
-    color: "#333",
-  },
-  button: {
-    backgroundColor: "#624be4ff",
-    padding: 14,
-    borderRadius: 10,
-    marginTop: 10,
-    marginBottom: 15,
-    elevation: 6,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.15,
-    shadowRadius: 6,
-  },
-  buttonPressed: {
-    elevation: 2,
-    shadowOffset: { width: 0, height: 2 },
-  },
-  text: {
-    color: "#fff",
-    fontWeight: "500",
-    textAlign: "center",
-  },
-});

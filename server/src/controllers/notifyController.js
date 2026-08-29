@@ -2,32 +2,22 @@ import {
   createNotification,
   getBusNotifications,
   updateNotificationStatus,
-  savePushToken
+  savePushToken,
+  getUserNotifications
 } from '../models/notifyModel.js';
-import jwt from 'jsonwebtoken';
 
-const authenticate = (req, res, next) => {
-  const token = req.headers.authorization?.split(' ')[1];
-  if (!token) {
-    return res.status(401).json({ error: 'No token provided' });
-  }
-  try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your_jwt_secret');
-    req.user = decoded; // { id, role, bus_id }
-    next();
-  } catch (err) {
-    res.status(401).json({ error: 'Invalid token' });
-  }
-};
 
 // Passenger creates notification -> waiting
 export const createNotificationHandler = async (req, res) => {
-  const { bus_id, bus_stop_id, user_id, timing, message } = req.body;
+  const { bus_id, bus_stop_id, timing, message } = req.body;
 
-  console.log('Create notification request body:', req.body);
+  // The passenger is taken from the verified token, never the request body.
+  // Trusting the body let a client book on behalf of anyone, and let a stale
+  // cached session keep sending an id whose user had since been deleted.
+  const user_id = req.user.id;
 
-  if (!bus_id || !bus_stop_id || !user_id || !timing || !message) {
-    return res.status(400).json({ error: 'bus_id, bus_stop_id, user_id, timing, and message are required' });
+  if (!bus_id || !bus_stop_id || !timing || !message) {
+    return res.status(400).json({ error: 'bus_id, bus_stop_id, timing, and message are required' });
   }
 
   try {
@@ -96,3 +86,14 @@ export const savePushTokenHandler = async (req, res) => {
 };
 
 
+
+// Passenger fetches their own booking history
+export const getMyNotificationsHandler = async (req, res) => {
+  try {
+    const trips = await getUserNotifications(req.user.id);
+    res.status(200).json(trips);
+  } catch (err) {
+    console.error('Fetch trip history error:', err);
+    res.status(500).json({ error: 'Failed to fetch trip history' });
+  }
+};

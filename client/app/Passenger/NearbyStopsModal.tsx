@@ -1,134 +1,113 @@
 import React, { useState } from "react";
-import {
-  View,
-  Text,
-  FlatList,
-  TouchableOpacity,
-  StyleSheet,
-} from "react-native";
-import { BusStop } from "../../src/types";
-import { useRouter, useLocalSearchParams } from "expo-router";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { MaterialIcons } from "@expo/vector-icons";
-import api from "../../src/services/api";
+import { FlatList, View } from "react-native";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import Toast from "react-native-toast-message";
 
-const NearbyStopsModal = () => {
+import { BusStop } from "../../src/types";
+import { useLanguage } from "../../src/contexts/LanguageContext";
+import { useTheme } from "../../src/theme";
+import api, { errorMessage } from "../../src/services/api";
+import {
+  AppBar,
+  Divider,
+  EmptyState,
+  ListRow,
+  Screen,
+  SkeletonRow,
+  StepIndicator,
+  Text,
+} from "../../src/components/ui";
+
+/** Parse a JSON route param without letting a malformed value crash the screen. */
+const parseParam = <T,>(value: string | string[] | undefined, fallback: T): T => {
+  if (typeof value !== "string") return fallback;
+  try {
+    return JSON.parse(value) as T;
+  } catch {
+    return fallback;
+  }
+};
+
+export default function NearbyStopsScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
+  const { t } = useLanguage();
+  const theme = useTheme();
 
-  const stops: BusStop[] = JSON.parse((params.stops as string) || "[]");
-  const fromAddress: string = (params.fromAddress as string) || "";
+  const stops = parseParam<BusStop[]>(params.stops, []);
+  const fromAddress = (params.fromAddress as string) || "";
 
-  const [selectedStop, setSelectedStop] = useState<BusStop | null>(null);
+  const [loadingStopId, setLoadingStopId] = useState<number | null>(null);
 
-  const handleNextScreen = async (item: BusStop) => {
-    setSelectedStop(item);
+  const openTimings = async (stop: BusStop) => {
+    setLoadingStopId(stop.id);
+    try {
+      const { data } = await api.get("/buses/bus_timings", {
+        params: { stop_id: stop.id, current_time: new Date().toISOString() },
+      });
 
-    const response = await api.get(`/buses/bus_timings`, {
-      params: {
-        stop_id: item.id,
-        current_time: new Date().toISOString(),
-      },
-    });
-
-    router.push({
-      pathname: "/Passenger/BusTimingsList",
-      params: {
-        timings: JSON.stringify(response.data), // always stringify
-        selectedStop: JSON.stringify(item),     // use item directly
-        fromCoords: params.fromCoords as string,
-        toCoords: params.toCoords as string,
-      },
-    });
+      router.push({
+        pathname: "/Passenger/BusTimingsList",
+        params: {
+          timings: JSON.stringify(data ?? []),
+          selectedStop: JSON.stringify(stop),
+          fromCoords: params.fromCoords as string,
+          toCoords: params.toCoords as string,
+        },
+      });
+    } catch (error) {
+      Toast.show({
+        type: "error",
+        text1: t("somethingWentWrong"),
+        text2: errorMessage(error, t("checkConnection")),
+      });
+    } finally {
+      setLoadingStopId(null);
+    }
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <MaterialIcons name="arrow-back" size={24} color="#000" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Bus Stops</Text>
-      </View>
+    <Screen padded={false}>
+      <AppBar title={t("stopsTitle")} showBack />
 
-      {/* Stops List */}
-      <View style={styles.modalContainer}>
-        <Text style={styles.listTitle}>
-          Bus Stops Near {fromAddress || "Your Location"}
-        </Text>
-        <FlatList
-          data={stops}
-          keyExtractor={(item) => String(item.id)}
-          renderItem={({ item }) => (
-            <TouchableOpacity
-              style={styles.listItem}
-              onPress={() => handleNextScreen(item)}
-            >
-              <View style={{ flexDirection: "row" }}>
-                <MaterialIcons
-                  name="location-pin"
-                  size={24}
-                  color="#624be4ff"
-                />
-                <Text style={styles.listItemText}>
-                  {item.stop_name}
-                  {item.distance ? ` - ${item.distance.toFixed(2)} km` : ""}
-                </Text>
-              </View>
-            </TouchableOpacity>
-          )}
+      <View style={{ paddingHorizontal: theme.spacing.xl, paddingVertical: theme.spacing.lg, gap: theme.spacing.lg }}>
+        <StepIndicator
+          steps={[t("stepPlan"), t("stepStop"), t("stepBus"), t("stepTrack")]}
+          current={1}
         />
+
+        <Text variant="title" weight="semibold">
+          {t("stopsNear", { place: fromAddress || t("currentLocation") })}
+        </Text>
       </View>
-    </SafeAreaView>
+
+      <FlatList
+        data={stops}
+        keyExtractor={(item) => String(item.id)}
+        ItemSeparatorComponent={() => <Divider inset={theme.spacing.xl} />}
+        contentContainerStyle={{ paddingBottom: theme.spacing.xxxl }}
+        ListEmptyComponent={
+          <EmptyState icon="map-outline" title={t("noStops")} description={t("noStopsDesc")} />
+        }
+        renderItem={({ item }) =>
+          loadingStopId === item.id ? (
+            <SkeletonRow />
+          ) : (
+            <ListRow
+              icon="location"
+              title={item.stop_name}
+              subtitle={
+                typeof item.distance === "number"
+                  ? t("kmAway", { distance: item.distance.toFixed(1) })
+                  : undefined
+              }
+              onPress={() => openTimings(item)}
+              hint={t("selectStopHint")}
+              showChevron
+            />
+          )
+        }
+      />
+    </Screen>
   );
-};
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#fff",
-  },
-  header: {
-    height: 80,
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 20,
-    backgroundColor: "#fff",
-    paddingTop: 30,
-  },
-  headerTitle: {
-    fontSize: 22,
-    fontWeight: "bold",
-    letterSpacing: 1,
-    marginLeft: 10,
-  },
-  modalContainer: {
-    padding: 20,
-    paddingTop: 30,
-    backgroundColor: "#fff",
-  },
-  listTitle: {
-    fontSize: 18,
-    fontWeight: "600",
-    marginBottom: 20,
-    color: "#2c3e50",
-  },
-  listItem: {
-    padding: 15,
-    backgroundColor: "#fff",
-    borderRadius: 8,
-    paddingVertical: 20,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: "#ecf0f1",
-    elevation: 3,
-  },
-  listItemText: {
-    fontSize: 16,
-    color: "#34495e",
-    marginLeft: 5,
-  },
-});
-
-export default NearbyStopsModal;
+}
