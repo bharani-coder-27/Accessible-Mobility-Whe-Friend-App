@@ -1,373 +1,317 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, Button, StyleSheet, Alert, TouchableOpacity } from 'react-native';
-import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
-import * as Location from 'expo-location';
-import { useRouter, useLocalSearchParams } from 'expo-router';
-import axios from 'axios';
-import { MaterialIcons } from '@expo/vector-icons';
-import { googleMapsApiKey, hasGoogleMapsApiKey } from '../../src/config';
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { AccessibilityInfo, View } from "react-native";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import * as Location from "expo-location";
+import axios from "axios";
+import Toast from "react-native-toast-message";
 
-interface Coordinates {
-  latitude: number;
-  longitude: number;
-}
+import { Coordinates } from "../../src/types";
+import { useLanguage } from "../../src/contexts/LanguageContext";
+import { useTheme } from "../../src/theme";
+import { googleMapsApiKey, hasGoogleMapsApiKey } from "../../src/config";
+import MapSection from "./passComponents/MapSection";
+import {
+  AppBar,
+  Badge,
+  Button,
+  EmptyState,
+  Screen,
+  StepIndicator,
+  Text,
+} from "../../src/components/ui";
 
-const TrackingScreen: React.FC = () => {
-  const router = useRouter();
-  const { destLat, destLng, fromLat, fromLng } = useLocalSearchParams();
+/**
+ * How close counts as "arrived", in metres.
+ *
+ * 50 m balances consumer GPS accuracy (5–20 m in the open, worse between
+ * buildings) against the spacing of bus stops, so the arrival fires once and
+ * at roughly the right place.
+ */
+const ARRIVAL_RADIUS_METRES = 50;
 
-  console.log(fromLat);
-  console.log(fromLng);
-  console.log(destLat);
-  console.log(destLng);
-  
-  const parsedDestLat = typeof destLat === 'string' ? parseFloat(destLat) : NaN;
-  const parsedDestLng = typeof destLng === 'string' ? parseFloat(destLng) : NaN;
-  const parsedFromLat = typeof fromLat === 'string' ? parseFloat(fromLat) : NaN;
-  const parsedFromLng = typeof fromLng === 'string' ? parseFloat(fromLng) : NaN;
+/** Great-circle distance between two points, in metres. */
+const distanceBetween = (a: Coordinates, b: Coordinates): number => {
+  const toRad = (value: number) => (value * Math.PI) / 180;
+  const earthRadius = 6371e3;
 
-  const [currentLocation, setCurrentLocation] = useState<Coordinates | null>(
-    !isNaN(parsedFromLat) && !isNaN(parsedFromLng)
-      ? { latitude: parsedFromLat, longitude: parsedFromLng }
-      : null
-  );
-  const [routeCoordinates, setRouteCoordinates] = useState<Coordinates[]>([]);
-  const [hasPermission, setHasPermission] = useState<boolean>(false);
-  const [arrived, setArrived] = useState<boolean>(false);
-  const [isValidCoordinates, setIsValidCoordinates] = useState<boolean>(true);
-  const mapRef = useRef<MapView>(null);
-  const watchId = useRef<Location.LocationSubscription | null>(null);
+  const dLat = toRad(b.latitude - a.latitude);
+  const dLon = toRad(b.longitude - a.longitude);
+  const h =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(a.latitude)) * Math.cos(toRad(b.latitude)) * Math.sin(dLon / 2) ** 2;
 
-  // 50 meters balances GPS accuracy (5-20m) and proximity to bus stops in Salem, India
-  const DESTINATION_RADIUS = 50; // Meters to consider "arrived"
-  // Validate coordinates on mount
-  useEffect(() => {
-    console.log('Parsed coordinates:', { parsedDestLat, parsedDestLng, parsedFromLat, parsedFromLng });
-    if (isNaN(parsedDestLat) || isNaN(parsedDestLng)) {
-      setIsValidCoordinates(false);
-      Alert.alert('Error', 'Invalid destination coordinates provided.');
-    }
-    if (!isNaN(parsedFromLat) && !isNaN(parsedFromLng)) {
-      // Use geocoded fromAddress as initial location
-      setCurrentLocation({ latitude: parsedFromLat, longitude: parsedFromLng });
-      fetchDirections(parsedFromLat, parsedFromLng);
-    }
-  }, [parsedDestLat, parsedDestLng, parsedFromLat, parsedFromLng]);
-
-  // Request location permission
-  const requestLocationPermission = async (): Promise<void> => {
-    const { status } = await Location.requestForegroundPermissionsAsync();
-    console.log('Location permission status:', status);
-    setHasPermission(status === 'granted');
-    if (status !== 'granted') {
-      Alert.alert('Permission Denied', 'Location permission is required to track your journey.');
-    }
-  };
-
-  // Calculate distance between two coordinates
-  const calculateDistance = (
-    lat1: number,
-    lon1: number,
-    lat2: number,
-    lon2: number
-  ): number => {
-    const toRad = (value: number): number => (value * Math.PI) / 180;
-    const R = 6371e3; // Earth's radius in meters
-    const dLat = toRad(lat2 - lat1);
-    const dLon = toRad(lon2 - lon1);
-    const a =
-      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
-      Math.sin(dLon / 2) * Math.sin(dLon / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c;
-  };
-
-  // Decode Google Polyline
-  const decodePolyline = (encoded: string): Coordinates[] => {
-    let index = 0;
-    const len = encoded.length;
-    let lat = 0;
-    let lng = 0;
-    const coordinates: Coordinates[] = [];
-
-    while (index < len) {
-      let b: number;
-      let shift = 0;
-      let result = 0;
-
-      do {
-        b = encoded.charCodeAt(index++) - 63;
-        result |= (b & 0x1f) << shift;
-        shift += 5;
-      } while (b >= 0x20);
-
-      const dlat = (result & 1) !== 0 ? ~(result >> 1) : result >> 1;
-      lat += dlat;
-
-      shift = 0;
-      result = 0;
-
-      do {
-        b = encoded.charCodeAt(index++) - 63;
-        result |= (b & 0x1f) << shift;
-        shift += 5;
-      } while (b >= 0x20);
-
-      const dlng = (result & 1) !== 0 ? ~(result >> 1) : result >> 1;
-      lng += dlng;
-
-      coordinates.push({
-        latitude: lat * 1e-5,
-        longitude: lng * 1e-5,
-      });
-    }
-
-    return coordinates;
-  };
-
-  // Fetch directions for transit mode only
-  const fetchDirections = async (startLat: number, startLng: number): Promise<boolean> => {
-    if (!hasGoogleMapsApiKey) {
-      console.warn('Google Maps API key is not configured; skipping directions request.');
-      return false;
-    }
-
-    if (isNaN(startLat) || isNaN(startLng) || isNaN(parsedDestLat) || isNaN(parsedDestLng)) {
-      console.error('Invalid coordinates:', { startLat, startLng, parsedDestLat, parsedDestLng });
-      Alert.alert('Error', 'Invalid coordinates for route calculation.');
-      return false;
-    }
-
-    try {
-      const response = await axios.get(
-        'https://maps.googleapis.com/maps/api/directions/json',
-        {
-          params: {
-            origin: `${startLat},${startLng}`,
-            destination: `${parsedDestLat},${parsedDestLng}`,
-            key: googleMapsApiKey,
-            mode: 'transit',
-            departure_time: 'now',
-          },
-        }
-      );
-
-      if (response.data.status === 'OK') {
-        const points = response.data.routes[0].overview_polyline.points;
-        const decoded = decodePolyline(points);
-        setRouteCoordinates(decoded);
-        console.log('Route fetched successfully with transit mode');
-        return true;
-      } else if (response.data.status === 'ZERO_RESULTS') {
-        console.warn('No bus routes found for transit mode');
-        Alert.alert(
-          'No Bus Route Found',
-          'No bus route is available between your location and the destination. Try selecting a different bus stop or adjusting the addresses.'
-        );
-        return false;
-      } else {
-        console.error('Directions API error:', response.data.status);
-        Alert.alert('Error', `Directions API failed: ${response.data.status}`);
-        return false;
-      }
-    } catch (error) {
-      console.error('Fetch directions error:', error);
-      Alert.alert('Error', 'Failed to fetch bus route. Please check your network connection or try again later.');
-      return false;
-    }
-  };
-
-  // Start location tracking
-  const startLocationTracking = async (): Promise<void> => {
-    if (!isValidCoordinates || watchId.current) return;
-
-    console.log('Starting location tracking');
-    watchId.current = await Location.watchPositionAsync(
-      {
-        accuracy: Location.Accuracy.High,
-        distanceInterval: 10,
-        timeInterval: 10000,
-      },
-      async (position: Location.LocationObject) => {
-        const { latitude, longitude } = position.coords;
-        console.log('Current location:', { latitude, longitude });
-        setCurrentLocation({ latitude, longitude });
-
-        // Fetch route for transit mode
-        if (routeCoordinates.length === 0) {
-          const routeFound = await fetchDirections(latitude, longitude);
-          if (!routeFound) {
-            console.log('No route found after attempting transit mode');
-          }
-        }
-
-        // Center map on user
-        mapRef.current?.animateToRegion({
-          latitude,
-          longitude,
-          latitudeDelta: 0.01,
-          longitudeDelta: 0.01,
-        });
-
-        // Check if destination reached
-        const distance = calculateDistance(latitude, longitude, parsedDestLat, parsedDestLng);
-        console.log('Distance to destination:', distance);
-        if (distance <= DESTINATION_RADIUS && !arrived) {
-          setArrived(true);
-          Alert.alert('Destination Reached', 'You have arrived at your destination!');
-          stopLocationTracking();
-        }
-      },
-      (error) => {
-        console.error('Location error:', error);
-        Alert.alert('Error', 'Failed to get location updates.');
-      }
-    );
-  };
-
-  // Stop location tracking
-  const stopLocationTracking = (): void => {
-    if (watchId.current) {
-      console.log('Stopping location tracking');
-      watchId.current.remove();
-      watchId.current = null;
-      router.back();
-    }
-  };
-
-  // Check permission and start tracking
-  useEffect(() => {
-    const initialize = async (): Promise<void> => {
-      const { status } = await Location.getForegroundPermissionsAsync();
-      console.log('Location permission status:', status);
-      if (status === 'granted') {
-        setHasPermission(true);
-        if (isValidCoordinates && !arrived) {
-          if (!currentLocation && isNaN(parsedFromLat)) {
-            startLocationTracking(); // Fallback to device location if no fromCoords
-          }
-        }
-      } else {
-        await requestLocationPermission();
-      }
-    };
-    initialize();
-
-    return () => stopLocationTracking();
-  }, [isValidCoordinates, arrived, currentLocation]);
-
-  return (
-    <View style={styles.container}>
-      <View
-        style={{
-          height: 80,
-          flexDirection: "row",
-          alignItems: "center",
-          paddingHorizontal: 20,
-          backgroundColor: "#fff",
-          paddingTop: 30,
-        }}
-      >
-        <View
-          style={{
-            justifyContent: "flex-start",
-            flexDirection: "row",
-            alignItems: "center",
-          }}
-        >
-          <TouchableOpacity onPress={() => router.back()}>
-            <MaterialIcons name="arrow-back" size={24} color="#000" />
-          </TouchableOpacity>
-          <Text
-            style={{
-              fontSize: 22,
-              fontWeight: "bold",
-              letterSpacing: 1,
-              marginLeft: 10,
-            }}
-          >
-            Bus Stops
-          </Text>
-        </View>
-      </View>
-      {!isValidCoordinates ? (
-        <Text style={styles.errorText}>Invalid destination coordinates provided.</Text>
-      ) : hasPermission ? (
-        <MapView
-          ref={mapRef}
-          provider={PROVIDER_GOOGLE}
-          style={styles.map}
-          initialRegion={{
-            latitude: currentLocation?.latitude || parsedDestLat,
-            longitude: currentLocation?.longitude || parsedDestLng,
-            latitudeDelta: 0.01,
-            longitudeDelta: 0.01,
-          }}
-          showsUserLocation={true}
-        >
-          <Marker
-            coordinate={{ latitude: parsedDestLat, longitude: parsedDestLng }}
-            title="Destination Bus Stop"
-            pinColor="blue"
-          />
-          {currentLocation && (
-            <Marker
-              coordinate={{ latitude: currentLocation.latitude, longitude: currentLocation.longitude }}
-              title="Your Location"
-              pinColor="red"
-            />
-          )}
-          {routeCoordinates.length > 0 && (
-            <Polyline
-              coordinates={routeCoordinates}
-              strokeColor="#0000FF"
-              strokeWidth={3}
-            />
-          )}
-        </MapView>
-      ) : (
-        <Text style={styles.errorText}>Waiting for location permission...</Text>
-      )}
-      <View style={styles.buttonContainer}>
-        <Button
-          title="Stop Tracking (Bus)"
-          onPress={stopLocationTracking}
-          disabled={arrived}
-        />
-        {arrived && <Text style={styles.arrivedText}>You have arrived!</Text>}
-      </View>
-    </View>
-  );
+  return 2 * earthRadius * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
 };
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  map: {
-    flex: 1,
-  },
-  buttonContainer: {
-    position: 'absolute',
-    bottom: 20,
-    left: 20,
-    right: 20,
-    alignItems: 'center',
-  },
-  errorText: {
-    flex: 1,
-    textAlign: 'center',
-    marginTop: 50,
-    fontSize: 18,
-    color: 'red',
-  },
-  arrivedText: {
-    marginTop: 10,
-    fontSize: 16,
-    color: 'green',
-    fontWeight: 'bold',
-  },
-});
+/** Decode a Google encoded polyline into coordinates. */
+const decodePolyline = (encoded: string): Coordinates[] => {
+  const coordinates: Coordinates[] = [];
+  let index = 0;
+  let lat = 0;
+  let lng = 0;
 
-export default TrackingScreen;
+  while (index < encoded.length) {
+    let result = 0;
+    let shift = 0;
+    let byte: number;
+
+    do {
+      byte = encoded.charCodeAt(index++) - 63;
+      result |= (byte & 0x1f) << shift;
+      shift += 5;
+    } while (byte >= 0x20);
+    lat += (result & 1) !== 0 ? ~(result >> 1) : result >> 1;
+
+    result = 0;
+    shift = 0;
+    do {
+      byte = encoded.charCodeAt(index++) - 63;
+      result |= (byte & 0x1f) << shift;
+      shift += 5;
+    } while (byte >= 0x20);
+    lng += (result & 1) !== 0 ? ~(result >> 1) : result >> 1;
+
+    coordinates.push({ latitude: lat * 1e-5, longitude: lng * 1e-5 });
+  }
+
+  return coordinates;
+};
+
+const readCoordinate = (value: string | string[] | undefined): number =>
+  typeof value === "string" ? parseFloat(value) : NaN;
+
+export default function TrackingScreen() {
+  const router = useRouter();
+  const params = useLocalSearchParams();
+  const { t } = useLanguage();
+  const theme = useTheme();
+
+  const destination = {
+    latitude: readCoordinate(params.destLat),
+    longitude: readCoordinate(params.destLng),
+  };
+  const origin = {
+    latitude: readCoordinate(params.fromLat),
+    longitude: readCoordinate(params.fromLng),
+  };
+
+  const hasDestination = !Number.isNaN(destination.latitude) && !Number.isNaN(destination.longitude);
+  const hasOrigin = !Number.isNaN(origin.latitude) && !Number.isNaN(origin.longitude);
+
+  const [permission, setPermission] = useState<"pending" | "granted" | "denied">("pending");
+  const [currentLocation, setCurrentLocation] = useState<Coordinates | null>(
+    hasOrigin ? origin : null
+  );
+  const [route, setRoute] = useState<Coordinates[]>([]);
+  const [arrived, setArrived] = useState(false);
+
+  const watcher = useRef<Location.LocationSubscription | null>(null);
+  const routeRequested = useRef(false);
+  const arrivedRef = useRef(false);
+
+  const remainingMetres =
+    currentLocation && hasDestination ? distanceBetween(currentLocation, destination) : null;
+
+  const readableDistance =
+    remainingMetres === null
+      ? null
+      : remainingMetres >= 1000
+        ? `${(remainingMetres / 1000).toFixed(1)} km`
+        : `${Math.round(remainingMetres)} m`;
+
+  const fetchRoute = useCallback(
+    async (start: Coordinates) => {
+      if (!hasGoogleMapsApiKey || !hasDestination || routeRequested.current) return;
+      routeRequested.current = true;
+
+      try {
+        const { data } = await axios.get(
+          "https://maps.googleapis.com/maps/api/directions/json",
+          {
+            params: {
+              origin: `${start.latitude},${start.longitude}`,
+              destination: `${destination.latitude},${destination.longitude}`,
+              key: googleMapsApiKey,
+              mode: "transit",
+              departure_time: "now",
+            },
+          }
+        );
+
+        if (data.status === "OK") {
+          setRoute(decodePolyline(data.routes[0].overview_polyline.points));
+        } else {
+          // A missing transit route is normal on routes the operator has not
+          // published; the live position and distance still work, so this is a
+          // quiet degradation rather than an error the user must dismiss.
+          routeRequested.current = data.status !== "ZERO_RESULTS";
+        }
+      } catch {
+        routeRequested.current = false;
+      }
+    },
+    [destination.latitude, destination.longitude, hasDestination]
+  );
+
+  /** Tear down the location watcher. Safe to call more than once. */
+  const stopWatching = useCallback(() => {
+    watcher.current?.remove();
+    watcher.current = null;
+  }, []);
+
+  const endJourney = () => {
+    stopWatching();
+    router.dismissAll();
+    router.replace("/Passenger");
+  };
+
+  useEffect(() => {
+    if (!hasDestination) return;
+
+    let cancelled = false;
+
+    const begin = async () => {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (cancelled) return;
+
+      if (status !== "granted") {
+        setPermission("denied");
+        return;
+      }
+      setPermission("granted");
+
+      watcher.current = await Location.watchPositionAsync(
+        { accuracy: Location.Accuracy.High, distanceInterval: 10, timeInterval: 10000 },
+        (position) => {
+          const next = {
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+          };
+          setCurrentLocation(next);
+          fetchRoute(next);
+
+          if (arrivedRef.current) return;
+          if (distanceBetween(next, destination) <= ARRIVAL_RADIUS_METRES) {
+            arrivedRef.current = true;
+            setArrived(true);
+            stopWatching();
+
+            // Spoken immediately rather than shown only as a toast: a rider
+            // who cannot watch the screen still needs to know to get off.
+            AccessibilityInfo.announceForAccessibility(t("arrivedMessage"));
+            Toast.show({ type: "success", text1: t("arrived"), text2: t("arrivedMessage") });
+          }
+        }
+      );
+    };
+
+    begin();
+
+    // Only tears down the watcher. The previous version navigated back from
+    // its cleanup, so simply leaving the screen bounced the user twice.
+    return () => {
+      cancelled = true;
+      stopWatching();
+    };
+  }, [hasDestination, destination.latitude, destination.longitude, fetchRoute, stopWatching, t]);
+
+  if (!hasDestination) {
+    return (
+      <Screen padded={false}>
+        <AppBar title={t("trackingTitle")} showBack />
+        <EmptyState
+          icon="alert-circle-outline"
+          tone="danger"
+          title={t("somethingWentWrong")}
+          description={t("invalidRoute")}
+          actionLabel={t("back")}
+          onAction={() => router.back()}
+        />
+      </Screen>
+    );
+  }
+
+  if (permission === "denied") {
+    return (
+      <Screen padded={false}>
+        <AppBar title={t("trackingTitle")} showBack />
+        <EmptyState
+          icon="location-outline"
+          title={t("locationNeeded")}
+          description={t("locationNeededDesc")}
+          actionLabel={t("enableLocation")}
+          onAction={async () => {
+            const { status } = await Location.requestForegroundPermissionsAsync();
+            setPermission(status === "granted" ? "granted" : "denied");
+          }}
+        />
+      </Screen>
+    );
+  }
+
+  return (
+    <Screen padded={false}>
+      <AppBar title={t("trackingTitle")} showBack />
+
+      <View style={{ paddingHorizontal: theme.spacing.xl, paddingVertical: theme.spacing.md }}>
+        <StepIndicator
+          steps={[t("stepPlan"), t("stepStop"), t("stepBus"), t("stepTrack")]}
+          current={3}
+        />
+      </View>
+
+      <MapSection
+        fill
+        fromCoords={currentLocation ?? destination}
+        toCoords={destination}
+        userLocation={currentLocation}
+        routeCoordinates={route}
+        accessibilityLabel={t("mapRouteLabel", {
+          from: t("youAreHere"),
+          to: (params.stopName as string) || t("destination"),
+        })}
+        placeholderText={t("mapUnavailable")}
+      />
+
+      {/* The status card carries everything the map conveys visually, as text,
+          so the screen is fully usable without seeing the map at all. */}
+      <View
+        style={{
+          gap: theme.spacing.md,
+          padding: theme.spacing.xl,
+          backgroundColor: theme.colors.surface,
+          borderTopWidth: theme.highContrast ? 2 : 1,
+          borderTopColor: theme.colors.border,
+        }}
+      >
+        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: theme.spacing.md }}>
+          <View style={{ flex: 1, gap: 2 }}>
+            <Text variant="footnote" tone="muted">
+              {t("destination")}
+            </Text>
+            <Text variant="bodyLg" weight="semibold" numberOfLines={2}>
+              {(params.stopName as string) || t("destination")}
+            </Text>
+          </View>
+
+          {arrived ? (
+            <Badge label={t("arrived")} tone="success" icon="checkmark-circle" />
+          ) : readableDistance ? (
+            <Badge
+              label={t("distanceRemaining", { distance: readableDistance })}
+              tone="info"
+              icon="navigate"
+            />
+          ) : null}
+        </View>
+
+        <Button
+          label={t("stopTracking")}
+          onPress={endJourney}
+          variant={arrived ? "primary" : "outline"}
+          icon={arrived ? "checkmark-circle-outline" : "close-circle-outline"}
+        />
+      </View>
+    </Screen>
+  );
+}

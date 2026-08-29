@@ -1,183 +1,208 @@
-import React, { useContext } from "react";
-import {
-  View,
-  Text,
-  FlatList,
-  TouchableOpacity,
-  StyleSheet,
-} from "react-native";
-import {
-  BusTiming,
-  BusStop,
-  Coordinates,
-} from "../../src/types";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { useRouter, useLocalSearchParams } from "expo-router";
-import { MaterialIcons } from "@expo/vector-icons";
-import api from "@/src/services/api";
-import { AuthContext } from "@/src/contexts/AuthContext";
+import React, { useContext, useState } from "react";
+import { ActivityIndicator, FlatList, Pressable, View } from "react-native";
+import Ionicons from "@expo/vector-icons/Ionicons";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import Toast from "react-native-toast-message";
 
-const BusTimingsList = () => {
+import { BusStop, BusTiming, Coordinates } from "../../src/types";
+import { AuthContext } from "../../src/contexts/AuthContext";
+import { useLanguage } from "../../src/contexts/LanguageContext";
+import { useTheme } from "../../src/theme";
+import api, { errorMessage } from "../../src/services/api";
+import { formatTime } from "../../src/utils/validation";
+import {
+  AppBar,
+  Badge,
+  EmptyState,
+  Screen,
+  StepIndicator,
+  Text,
+} from "../../src/components/ui";
+
+const parseParam = <T,>(value: string | string[] | undefined, fallback: T): T => {
+  if (typeof value !== "string") return fallback;
+  try {
+    return JSON.parse(value) as T;
+  } catch {
+    return fallback;
+  }
+};
+
+export default function BusTimingsScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const { user } = useContext(AuthContext);
+  const { t } = useLanguage();
+  const theme = useTheme();
 
-  const selectedStop: BusStop = params.selectedStop
-    ? JSON.parse(params.selectedStop as string)
-    : null;
+  const selectedStop = parseParam<BusStop | null>(params.selectedStop, null);
+  const timings = parseParam<BusTiming[]>(params.timings, []);
+  const fromCoords = parseParam<Coordinates | null>(params.fromCoords, null);
+  const toCoords = parseParam<Coordinates | null>(params.toCoords, null);
 
-  const timings: BusTiming[] = params.timings
-    ? JSON.parse(params.timings as string)
-    : [];
+  const [notifyingBusId, setNotifyingBusId] = useState<number | null>(null);
 
-  const parsedFrom: Coordinates | null = params.fromCoords
-    ? JSON.parse(params.fromCoords as string)
-    : null;
+  const selectBus = async (bus: BusTiming) => {
+    if (!selectedStop || !user) return;
 
-  const parsedTo: Coordinates | null = params.toCoords
-    ? JSON.parse(params.toCoords as string)
-    : null;
-
-  const onSelectBus = async (item: BusTiming) => {
-    const response = async () => {
-      return await api.post(`/notify`, {
-        bus_id: item.bus_id,
-        bus_stop_id: selectedStop?.id,
-        user_id: user?.id,
-        timing: item.arrival_time,
-        message: `Passenger ${user?.name} is waiting at ${selectedStop?.stop_name} for bus ${item.bus_name}`,
+    setNotifyingBusId(bus.bus_id);
+    try {
+      await api.post("/notify", {
+        bus_id: bus.bus_id,
+        bus_stop_id: selectedStop.id,
+        user_id: user.id,
+        timing: bus.arrival_time,
+        message: `Passenger ${user.name} is waiting at ${selectedStop.stop_name} for bus ${bus.bus_name}`,
       });
-    };
 
-    console.log((await response()).data.message);
+      Toast.show({ type: "success", text1: t("conductorNotified") });
 
-    router.push({
-      pathname: "/Passenger/TrackingScreen",
-      params: {
-        fromLat: parsedFrom?.latitude ?? "",
-        fromLng: parsedFrom?.longitude ?? "",
-        destLat: parsedTo?.latitude ?? "",
-        destLng: parsedTo?.longitude ?? "",
-      },
-    });
+      router.push({
+        pathname: "/Passenger/TrackingScreen",
+        params: {
+          fromLat: fromCoords?.latitude ?? "",
+          fromLng: fromCoords?.longitude ?? "",
+          destLat: toCoords?.latitude ?? "",
+          destLng: toCoords?.longitude ?? "",
+          stopName: selectedStop.stop_name,
+          busName: bus.bus_name,
+        },
+      });
+    } catch (error) {
+      // The server rejects a second active booking for the same bus and stop,
+      // which is a normal thing for a user to try, not a system failure.
+      const message = errorMessage(error, t("notifyFailed"));
+      const isDuplicate = message.toLowerCase().includes("already");
+
+      Toast.show({
+        type: isDuplicate ? "info" : "error",
+        text1: isDuplicate ? t("alreadyBooked") : t("notifyFailed"),
+        text2: isDuplicate ? undefined : message,
+      });
+    } finally {
+      setNotifyingBusId(null);
+    }
   };
 
-  if (!selectedStop || timings.length === 0) return null;
-
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <MaterialIcons name="arrow-back" size={24} color="#000" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Next Buses</Text>
-      </View>
-      <View style={styles.listContainer}>
-        <Text style={styles.listTitle}>
-          Next Available Bus Timings for {selectedStop.stop_name}
-        </Text>
-        <View
-          style={{
-            flexDirection: "row",
-            justifyContent: "space-between",
-            paddingBottom: 20,
-            paddingHorizontal: 20,
-          }}
-        >
-          <Text style={{ fontWeight: "bold", fontSize: 20 }}>Buses</Text>
-          <Text style={{ fontWeight: "bold", fontSize: 20 }}>Timings</Text>
-        </View>
-        <FlatList
-          data={timings}
-          keyExtractor={(item, index) =>
-            `${item.bus_id}-${item.arrival_time}-${index}`
-          }
-          renderItem={({ item }) => (
-            <TouchableOpacity
-              style={styles.listItem}
-              onPress={() => onSelectBus(item)}
-            >
-              <View
-                style={{
-                  flexDirection: "row",
-                  justifyContent: "space-between",
-                }}
-              >
-                <View style={{ flexDirection: "row" }}>
-                  <MaterialIcons
-                    name="access-time"
-                    size={24}
-                    color="#624be4ff"
-                  />
-                  <Text style={styles.listItemText}>
-                    {item.bus_name} ({item.trip_code})
-                  </Text>
-                </View>
-                <View>
-                  <Text style={{ color: "#e44b4bff" }}>
-                    {item.arrival_time}
-                  </Text>
-                </View>
-              </View>
-            </TouchableOpacity>
-          )}
+    <Screen padded={false}>
+      <AppBar title={t("busesTitle")} showBack />
+
+      <View
+        style={{
+          paddingHorizontal: theme.spacing.xl,
+          paddingVertical: theme.spacing.lg,
+          gap: theme.spacing.lg,
+        }}
+      >
+        <StepIndicator
+          steps={[t("stepPlan"), t("stepStop"), t("stepBus"), t("stepTrack")]}
+          current={2}
         />
+
+        <Text variant="title" weight="semibold">
+          {t("busesAt", { stop: selectedStop?.stop_name ?? "" })}
+        </Text>
       </View>
-    </SafeAreaView>
+
+      <FlatList
+        data={timings}
+        keyExtractor={(item, index) => `${item.bus_id}-${item.arrival_time}-${index}`}
+        contentContainerStyle={{
+          paddingHorizontal: theme.spacing.xl,
+          paddingBottom: theme.spacing.xxxl,
+          gap: theme.spacing.md,
+        }}
+        ListEmptyComponent={
+          <EmptyState
+            icon="bus-outline"
+            title={t("noBuses")}
+            description={t("noBusesDesc")}
+            actionLabel={t("back")}
+            onAction={() => router.back()}
+          />
+        }
+        renderItem={({ item }) => {
+          const busy = notifyingBusId === item.bus_id;
+          const accessible = item.wheelchair_accessible;
+
+          return (
+            <Pressable
+              accessibilityRole="button"
+              // Spoken as one sentence: which bus, when it arrives, and whether
+              // it is accessible — the last being the fact that decides whether
+              // this bus is usable at all.
+              accessibilityLabel={[
+                item.bus_name,
+                item.trip_code,
+                t("arrivesAt", { time: formatTime(item.arrival_time) }),
+                accessible ? t("wheelchairAccessible") : t("notAccessible"),
+              ]
+                .filter(Boolean)
+                .join(". ")}
+              accessibilityHint={t("notifyConductor")}
+              accessibilityState={{ busy, disabled: busy }}
+              disabled={busy}
+              onPress={() => selectBus(item)}
+              style={({ pressed }) => [
+                {
+                  gap: theme.spacing.md,
+                  padding: theme.spacing.lg,
+                  borderRadius: theme.radius.lg,
+                  backgroundColor: pressed ? theme.colors.surfacePressed : theme.colors.surface,
+                  borderWidth: theme.highContrast ? 2 : 1,
+                  borderColor: theme.colors.border,
+                  opacity: busy ? 0.7 : 1,
+                },
+                theme.shadow(1),
+              ]}
+            >
+              <View style={{ flexDirection: "row", alignItems: "center", gap: theme.spacing.md }}>
+                <View
+                  style={{
+                    width: 44,
+                    height: 44,
+                    borderRadius: theme.radius.md,
+                    alignItems: "center",
+                    justifyContent: "center",
+                    backgroundColor: theme.colors.primarySoft,
+                  }}
+                >
+                  <Ionicons name="bus" size={theme.size("titleLg")} color={theme.colors.primaryText} />
+                </View>
+
+                <View style={{ flex: 1, gap: 2 }}>
+                  <Text variant="bodyLg" weight="semibold" numberOfLines={1}>
+                    {item.bus_name}
+                  </Text>
+                  {item.trip_code ? (
+                    <Text variant="footnote" tone="muted">
+                      {item.trip_code}
+                    </Text>
+                  ) : null}
+                </View>
+
+                {busy ? (
+                  <ActivityIndicator color={theme.colors.primary} />
+                ) : (
+                  <View style={{ alignItems: "flex-end" }}>
+                    <Text variant="title" weight="bold" tone="primary">
+                      {formatTime(item.arrival_time)}
+                    </Text>
+                  </View>
+                )}
+              </View>
+
+              {/* On its own line so a long label never squeezes the bus name. */}
+              <Badge
+                label={accessible ? t("wheelchairAccessible") : t("notAccessible")}
+                tone={accessible ? "success" : "warning"}
+                icon={accessible ? "accessibility" : "alert-circle-outline"}
+              />
+            </Pressable>
+          );
+        }}
+      />
+    </Screen>
   );
-};
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#fff",
-    paddingBottom: 200,
-  },
-  header: {
-    height: 80,
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 20,
-    backgroundColor: "#fff",
-    paddingTop: 30,
-  },
-  headerTitle: {
-    fontSize: 22,
-    fontWeight: "bold",
-    letterSpacing: 1,
-    marginLeft: 10,
-  },
-  listContainer: {
-    padding: 20,
-    backgroundColor: "#fff",
-    borderRadius: 10,
-    marginVertical: 10,
-    shadowColor: "#000",
-    shadowOpacity: 0.1,
-    shadowRadius: 5,
-  },
-  listTitle: {
-    fontSize: 18,
-    fontWeight: "600",
-    marginBottom: 12,
-    color: "#2c3e50",
-    paddingBottom: 15,
-  },
-  listItem: {
-    padding: 15,
-    backgroundColor: "#fff",
-    borderRadius: 8,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: "#ecf0f1",
-    elevation: 3,
-    paddingVertical: 20,
-  },
-  listItemText: {
-    fontSize: 16,
-    color: "#34495e",
-    marginLeft: 5,
-  },
-});
-
-export default BusTimingsList;
+}
