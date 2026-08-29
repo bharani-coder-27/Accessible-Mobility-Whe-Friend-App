@@ -13,8 +13,8 @@ import {
   geocodeAddress,
   getCurrentLocation,
 } from "../../src/services/googleApi";
-import LocationInput from "./passComponents/LocationInput";
-import MapSection from "./passComponents/MapSection";
+import LocationInput from "../../src/components/passenger/LocationInput";
+import MapSection from "../../src/components/passenger/MapSection";
 import {
   AppBar,
   Button,

@@ -9,7 +9,7 @@ import { Coordinates } from "../../src/types";
 import { useLanguage } from "../../src/contexts/LanguageContext";
 import { useTheme } from "../../src/theme";
 import { googleMapsApiKey, hasGoogleMapsApiKey } from "../../src/config";
-import MapSection from "./passComponents/MapSection";
+import MapSection from "../../src/components/passenger/MapSection";
 import {
   AppBar,
   Badge,

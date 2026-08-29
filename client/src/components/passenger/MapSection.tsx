@@ -2,10 +2,10 @@ import React, { useEffect, useRef } from "react";
 import { View, ViewStyle } from "react-native";
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from "react-native-maps";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { Coordinates } from "../../../src/types";
-import { hasGoogleMapsApiKey } from "../../../src/config";
-import { useTheme } from "../../../src/theme";
-import { Text } from "../../../src/components/ui";
+import { Coordinates } from "../../types";
+import { hasGoogleMapsApiKey } from "../../config";
+import { useTheme } from "../../theme";
+import { Text } from "../ui";
 
 interface Props {
   fromCoords: Coordinates;

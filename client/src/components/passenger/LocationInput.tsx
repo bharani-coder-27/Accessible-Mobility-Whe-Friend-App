@@ -1,9 +1,9 @@
 import React from 'react';
 import { ActivityIndicator, Pressable, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { Coordinates, PlaceSuggestion } from '../../../src/types';
-import { useTheme } from '../../../src/theme';
-import { Text, TextField } from '../../../src/components/ui';
+import { Coordinates, PlaceSuggestion } from '../../types';
+import { useTheme } from '../../theme';
+import { Text, TextField } from '../ui';
 
 interface Props {
   label: string;
