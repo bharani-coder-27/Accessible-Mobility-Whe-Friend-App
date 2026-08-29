@@ -14,7 +14,7 @@ import Toast from "react-native-toast-message";
 import api from "../services/api";
 import { AuthContext } from "./AuthContext";
 import { useLanguage } from "./LanguageContext";
-import { socketUrl } from "../config";
+import { getSocketUrl } from "../services/serverConfig";
 
 export type PassengerStatus = "waiting" | "traveling" | "completed";
 
@@ -143,7 +143,9 @@ export const PassengerProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     if (!busId) return;
 
-    const socket = io(socketUrl, { transports: ["websocket"] });
+    // Resolved here rather than at module load, so a server changed in
+    // Settings takes effect without restarting the app.
+    const socket = io(getSocketUrl(), { transports: ["websocket"] });
     socketRef.current = socket;
 
     const joinRoom = () => socket.emit("joinBusRoom", { bus_id: busId });

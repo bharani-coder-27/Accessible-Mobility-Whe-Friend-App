@@ -179,6 +179,15 @@ const en = {
   signOutConfirm: "Sign out?",
   signOutMessage: "You will need to sign in again to plan a journey.",
 
+  // Server
+  server: "Server",
+  serverUrl: "Server address",
+  serverUrlHint: "Paste the address your organiser gave you, e.g. https://example.trycloudflare.com",
+  serverUrlInvalid: "Enter a full address starting with https://",
+  serverUrlSaved: "Now connected to the new server.",
+  serverUrlDefault: "Using the built-in address",
+  resetToDefault: "Reset to default",
+
   // Map
   mapUnavailable: "Map preview is not available. Your journey details are listed above.",
   mapRouteLabel: "Map showing the route from {from} to {to}.",
@@ -361,6 +370,14 @@ const ta: Dict = {
   signOutConfirm: "வெளியேறவா?",
   signOutMessage: "பயணத்தைத் திட்டமிட மீண்டும் உள்நுழைய வேண்டும்.",
 
+  server: "சேவையகம்",
+  serverUrl: "சேவையக முகவரி",
+  serverUrlHint: "உங்கள் ஏற்பாட்டாளர் தந்த முகவரியை ஒட்டவும், எ.கா. https://example.trycloudflare.com",
+  serverUrlInvalid: "https:// இல் தொடங்கும் முழு முகவரியை உள்ளிடவும்",
+  serverUrlSaved: "புதிய சேவையகத்துடன் இணைக்கப்பட்டது.",
+  serverUrlDefault: "உள்ளமைந்த முகவரி பயன்படுத்தப்படுகிறது",
+  resetToDefault: "இயல்புநிலைக்கு மீட்டமை",
+
   mapUnavailable: "வரைபடம் கிடைக்கவில்லை. உங்கள் பயண விவரங்கள் மேலே பட்டியலிடப்பட்டுள்ளன.",
   mapRouteLabel: "{from} இலிருந்து {to} வரையிலான வழியைக் காட்டும் வரைபடம்.",
 
@@ -533,6 +550,14 @@ const hi: Dict = {
   signOut: "साइन आउट",
   signOutConfirm: "साइन आउट करें?",
   signOutMessage: "यात्रा की योजना बनाने के लिए आपको फिर साइन इन करना होगा।",
+
+  server: "सर्वर",
+  serverUrl: "सर्वर पता",
+  serverUrlHint: "आयोजक द्वारा दिया गया पता चिपकाएँ, जैसे https://example.trycloudflare.com",
+  serverUrlInvalid: "https:// से शुरू होने वाला पूरा पता दर्ज करें",
+  serverUrlSaved: "नए सर्वर से जुड़ गए।",
+  serverUrlDefault: "अंतर्निहित पता उपयोग हो रहा है",
+  resetToDefault: "डिफ़ॉल्ट पर रीसेट करें",
 
   mapUnavailable: "मानचित्र उपलब्ध नहीं है। आपकी यात्रा का विवरण ऊपर दिया गया है।",
   mapRouteLabel: "{from} से {to} तक का मार्ग दिखाता मानचित्र।",

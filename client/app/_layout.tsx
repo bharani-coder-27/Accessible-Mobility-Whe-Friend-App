@@ -1,4 +1,4 @@
-import React, { useContext, useEffect } from "react";
+import React, { useContext, useEffect, useState } from "react";
 import { View } from "react-native";
 import { Stack, useRouter, useSegments } from "expo-router";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -18,10 +18,15 @@ import { LanguageProvider } from "../src/contexts/LanguageContext";
 import { ThemeProvider, useTheme } from "../src/theme";
 import { toastConfig } from "../src/components/ui/AppToast";
 import { setupNotificationHandler } from "../src/utils/notificationHandler";
+import { loadServerBase } from "../src/services/serverConfig";
 
 SplashScreen.preventAutoHideAsync().catch(() => {
   /* The splash screen may already be hidden on a fast reload. */
 });
+
+// Applied before React renders, so the very first request already goes to the
+// server the user chose rather than the one baked in at build time.
+const serverReady = loadServerBase();
 
 function RootNavigator() {
   const { user, loading } = useContext(AuthContext);
@@ -70,7 +75,12 @@ function AppGate() {
     Inter_700Bold,
   });
 
-  const ready = (fontsLoaded || !!fontError) && !loading;
+  const [serverLoaded, setServerLoaded] = useState(false);
+  useEffect(() => {
+    serverReady.finally(() => setServerLoaded(true));
+  }, []);
+
+  const ready = (fontsLoaded || !!fontError) && !loading && serverLoaded;
 
   useEffect(() => {
     if (ready) SplashScreen.hideAsync().catch(() => {});

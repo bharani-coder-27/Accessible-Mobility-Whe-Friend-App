@@ -1,5 +1,6 @@
-import React from "react";
+import React, { useState } from "react";
 import { View } from "react-native";
+import Toast from "react-native-toast-message";
 import Constants from "expo-constants";
 
 import { useLanguage } from "../src/contexts/LanguageContext";
@@ -7,12 +8,22 @@ import { useTheme, useThemePreferences, ThemeMode, TextSize } from "../src/theme
 import { Language, languageNames, supportedLanguages } from "../src/i18n";
 import {
   AppBar,
+  Button,
   Card,
   Screen,
   SegmentedControl,
   SwitchRow,
   Text,
+  TextField,
 } from "../src/components/ui";
+import {
+  defaultServerBase,
+  getServerBase,
+  isUsingDefaultServer,
+  isValidServerBase,
+  resetServerBase,
+  setServerBase,
+} from "../src/services/serverConfig";
 
 const Section = ({ title, children }: { title: string; children: React.ReactNode }) => {
   const theme = useTheme();
@@ -41,6 +52,30 @@ export default function SettingsScreen() {
   const { mode, setMode, highContrast, setHighContrast, textSize, setTextSize } =
     useThemePreferences();
 
+  const [serverUrl, setServerUrl] = useState(getServerBase());
+  const [serverError, setServerError] = useState<string | undefined>();
+  const [usingDefault, setUsingDefault] = useState(isUsingDefaultServer());
+
+  const saveServer = async () => {
+    if (!isValidServerBase(serverUrl)) {
+      setServerError(t("serverUrlInvalid"));
+      return;
+    }
+
+    await setServerBase(serverUrl);
+    setServerUrl(getServerBase());
+    setUsingDefault(isUsingDefaultServer());
+    setServerError(undefined);
+    Toast.show({ type: "success", text1: t("serverUrlSaved") });
+  };
+
+  const restoreServer = async () => {
+    await resetServerBase();
+    setServerUrl(getServerBase());
+    setUsingDefault(true);
+    setServerError(undefined);
+  };
+
   return (
     <Screen
       scroll
@@ -60,6 +95,36 @@ export default function SettingsScreen() {
                 label: languageNames[code],
               }))}
             />
+          </Card>
+        </Section>
+
+        {/* The build-time address is only a default. A tunnelled dev server
+            changes address whenever the tunnel restarts, so without this every
+            change would mean rebuilding and redistributing the app. */}
+        <Section title={t("server")}>
+          <Card style={{ gap: theme.spacing.md }}>
+            <TextField
+              label={t("serverUrl")}
+              icon="cloud-outline"
+              hint={usingDefault ? t("serverUrlDefault") : undefined}
+              error={serverError}
+              value={serverUrl}
+              onChangeText={(value) => {
+                setServerUrl(value);
+                setServerError(undefined);
+              }}
+              autoCapitalize="none"
+              autoCorrect={false}
+              keyboardType="url"
+              placeholder={defaultServerBase}
+            />
+            <Text variant="footnote" tone="muted">
+              {t("serverUrlHint")}
+            </Text>
+            <Button label={t("save")} onPress={saveServer} icon="checkmark-outline" />
+            {!usingDefault ? (
+              <Button label={t("resetToDefault")} onPress={restoreServer} variant="ghost" />
+            ) : null}
           </Card>
         </Section>
 
