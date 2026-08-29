@@ -41,7 +41,7 @@ export const getBusTimings = async (stop_id, formattedTime) => {
       bus_id: timing.bus.id,
       bus_name: timing.bus.name,
       arrival_time: timing.arrival_time,
-      tripCode: timing.bus.trip_code,
+      trip_code: timing.bus.trip_code,
       wheelchair_accessible: timing.bus.wheelchair_accessible,
     }));
   } catch (error) {
