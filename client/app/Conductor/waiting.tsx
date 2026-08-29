@@ -1,16 +1,6 @@
-// app/conductor/waiting.tsx
 import React from 'react';
-import { SafeAreaView, StyleSheet } from 'react-native';
-import PassengerList from '../components/PassengerList';
+import { PassengerList } from '../../src/components/PassengerList';
 
 export default function WaitingScreen() {
-  return (
-    <SafeAreaView style={styles.container}>
-      <PassengerList status="waiting" />
-    </SafeAreaView>
-  );
+  return <PassengerList status="waiting" />;
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f8f8f8ff' },
-});
