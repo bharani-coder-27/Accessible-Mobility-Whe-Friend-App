@@ -179,6 +179,14 @@ const en = {
   signOutConfirm: "Sign out?",
   signOutMessage: "You will need to sign in again to plan a journey.",
 
+  // Map
+  mapUnavailable: "Map preview is not available. Your journey details are listed above.",
+  mapRouteLabel: "Map showing the route from {from} to {to}.",
+
+  // Account
+  account: "Account",
+  signedInAs: "Signed in as {name}",
+
   // Navigation
   home: "Home",
   myTrips: "My trips",
@@ -353,6 +361,12 @@ const ta: Dict = {
   signOutConfirm: "வெளியேறவா?",
   signOutMessage: "பயணத்தைத் திட்டமிட மீண்டும் உள்நுழைய வேண்டும்.",
 
+  mapUnavailable: "வரைபடம் கிடைக்கவில்லை. உங்கள் பயண விவரங்கள் மேலே பட்டியலிடப்பட்டுள்ளன.",
+  mapRouteLabel: "{from} இலிருந்து {to} வரையிலான வழியைக் காட்டும் வரைபடம்.",
+
+  account: "கணக்கு",
+  signedInAs: "{name} ஆக உள்நுழைந்துள்ளீர்கள்",
+
   home: "முகப்பு",
   myTrips: "எனது பயணங்கள்",
 };
@@ -519,6 +533,12 @@ const hi: Dict = {
   signOut: "साइन आउट",
   signOutConfirm: "साइन आउट करें?",
   signOutMessage: "यात्रा की योजना बनाने के लिए आपको फिर साइन इन करना होगा।",
+
+  mapUnavailable: "मानचित्र उपलब्ध नहीं है। आपकी यात्रा का विवरण ऊपर दिया गया है।",
+  mapRouteLabel: "{from} से {to} तक का मार्ग दिखाता मानचित्र।",
+
+  account: "खाता",
+  signedInAs: "{name} के रूप में साइन इन",
 
   home: "होम",
   myTrips: "मेरी यात्राएँ",
