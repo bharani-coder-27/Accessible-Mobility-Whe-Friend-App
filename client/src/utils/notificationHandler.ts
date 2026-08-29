@@ -1,7 +1,23 @@
-// utils/NotificationHandler.ts
+// utils/notificationHandler.ts
 import * as Notifications from 'expo-notifications';
 import axios from '../services/api'; // Ensure this points to your axios instance
 import { Alert } from 'react-native';
+
+/**
+ * Show notifications while the app is in the foreground.
+ *
+ * Called once at module scope so the handler is installed before any
+ * notification can arrive, rather than racing the first screen's mount.
+ */
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
+  }),
+});
 
 
 // Define the structure of the data payload inside the notification
