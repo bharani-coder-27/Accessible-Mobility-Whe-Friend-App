@@ -221,3 +221,44 @@ export const savePushToken = async (user_id, expo_push_token) => {
     throw new Error(`Failed to save push token: ${err.message}`);
   }
 };
+
+/**
+ * Fetch a passenger's own booking history, newest first.
+ *
+ * Only `normal` notifications are returned: those are the bookings the
+ * passenger actually made. `start_travel` / `complete_travel` rows are
+ * system messages raised by the conductor and carry no stop, so they would
+ * render as blank entries in a trip list.
+ *
+ * @param {number} user_id
+ * @param {number} limit
+ */
+export const getUserNotifications = async (user_id, limit = 50) => {
+  try {
+    const notifications = await prisma.notification.findMany({
+      where: { user_id, type: 'normal' },
+      include: {
+        bus_stop: { select: { id: true, stop_name: true } },
+        bus: { select: { id: true, name: true, trip_code: true, wheelchair_accessible: true } },
+      },
+      orderBy: { created_at: 'desc' },
+      take: limit,
+    });
+
+    return notifications.map((n) => ({
+      id: n.id,
+      bus_id: n.bus_id,
+      bus_name: n.bus?.name ?? null,
+      trip_code: n.bus?.trip_code ?? null,
+      wheelchair_accessible: n.bus?.wheelchair_accessible ?? false,
+      bus_stop_id: n.bus_stop?.id ?? null,
+      bus_stop_name: n.bus_stop?.stop_name ?? null,
+      timing: n.timing,
+      status: n.status,
+      message: n.message,
+      created_at: n.created_at,
+    }));
+  } catch (err) {
+    throw new Error(`Failed to fetch trip history: ${err.message}`);
+  }
+};

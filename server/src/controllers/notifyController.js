@@ -2,7 +2,8 @@ import {
   createNotification,
   getBusNotifications,
   updateNotificationStatus,
-  savePushToken
+  savePushToken,
+  getUserNotifications
 } from '../models/notifyModel.js';
 import jwt from 'jsonwebtoken';
 
@@ -96,3 +97,14 @@ export const savePushTokenHandler = async (req, res) => {
 };
 
 
+
+// Passenger fetches their own booking history
+export const getMyNotificationsHandler = async (req, res) => {
+  try {
+    const trips = await getUserNotifications(req.user.id);
+    res.status(200).json(trips);
+  } catch (err) {
+    console.error('Fetch trip history error:', err);
+    res.status(500).json({ error: 'Failed to fetch trip history' });
+  }
+};
