@@ -1,7 +1,7 @@
 import React from 'react';
 import { ActivityIndicator, Pressable, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { Coordinates, PlaceSuggestion } from '../../types';
+import { PlaceSuggestion } from '../../types';
 import { useTheme } from '../../theme';
 import { Text, TextField } from '../ui';
 

@@ -42,9 +42,12 @@ export default function SettingsScreen() {
     useThemePreferences();
 
   return (
-    <Screen scroll padded={false} contentStyle={{ paddingBottom: theme.spacing.xxxl }}>
-      <AppBar title={t("settings")} showBack />
-
+    <Screen
+      scroll
+      padded={false}
+      header={<AppBar title={t("settings")} showBack />}
+      contentStyle={{ paddingBottom: theme.spacing.xxxl }}
+    >
       <View style={{ padding: theme.spacing.xl, gap: theme.spacing.xxl }}>
         <Section title={t("language")}>
           <Card>

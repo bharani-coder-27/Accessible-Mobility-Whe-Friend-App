@@ -1,4 +1,4 @@
-import axios from "axios";
+import axios, { isAxiosError } from "axios";
 import { apiBaseUrl } from "../config";
 
 const api = axios.create({
@@ -35,7 +35,7 @@ api.interceptors.request.use((config) => {
  * than a raw axios error, which reads as "Request failed with status code 400".
  */
 export const errorMessage = (error: unknown, fallback: string): string => {
-  if (axios.isAxiosError(error)) {
+  if (isAxiosError(error)) {
     const data = error.response?.data as { message?: string; error?: string } | undefined;
     return data?.message || data?.error || fallback;
   }

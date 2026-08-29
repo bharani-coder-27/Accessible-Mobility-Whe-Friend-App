@@ -169,10 +169,9 @@ export default function RegisterScreen() {
     <Screen
       scroll
       padded={false}
+      header={<AppBar title={t("registerTitle")} subtitle={t("registerSubtitle")} showBack />}
       contentStyle={{ paddingBottom: theme.spacing.xxxl }}
     >
-      <AppBar title={t("registerTitle")} subtitle={t("registerSubtitle")} showBack />
-
       <View style={{ padding: theme.spacing.xl, gap: theme.spacing.xxl }}>
         <View style={{ gap: theme.spacing.sm }}>
           <Text variant="footnote" weight="medium" tone="muted">

@@ -102,9 +102,12 @@ export default function ProfileScreen() {
   };
 
   return (
-    <Screen scroll padded={false} contentStyle={{ paddingBottom: theme.spacing.xxxl }}>
-      <AppBar title={t("profile")} showBack />
-
+    <Screen
+      scroll
+      padded={false}
+      header={<AppBar title={t("profile")} showBack />}
+      contentStyle={{ paddingBottom: theme.spacing.xxxl }}
+    >
       <View style={{ padding: theme.spacing.xl, gap: theme.spacing.xl }}>
         <View style={{ alignItems: "center", gap: theme.spacing.sm }}>
           <Avatar name={values.name} size={88} />

@@ -173,18 +173,23 @@ export default function PassengerHomeScreen() {
   };
 
   return (
-    <Screen scroll padded={false} contentStyle={{ paddingBottom: theme.spacing.xxxl }}>
-      <AppBar
-        title={t("appName")}
-        actions={
-          <IconButton
-            icon="settings-outline"
-            label={t("settings")}
-            onPress={() => router.push("/settings")}
-          />
-        }
-      />
-
+    <Screen
+      scroll
+      padded={false}
+      header={
+        <AppBar
+          title={t("appName")}
+          actions={
+            <IconButton
+              icon="settings-outline"
+              label={t("settings")}
+              onPress={() => router.push("/settings")}
+            />
+          }
+        />
+      }
+      contentStyle={{ paddingBottom: theme.spacing.xxxl }}
+    >
       <View style={{ padding: theme.spacing.xl, gap: theme.spacing.xl }}>
         <StepIndicator
           steps={[t("stepPlan"), t("stepStop"), t("stepBus"), t("stepTrack")]}

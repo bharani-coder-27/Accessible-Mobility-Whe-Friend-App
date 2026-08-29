@@ -30,9 +30,12 @@ export const AccountScreen = () => {
   const name = user?.name ?? "";
 
   return (
-    <Screen scroll padded={false} contentStyle={{ paddingBottom: theme.spacing.xxxl }}>
-      <AppBar title={t("account")} />
-
+    <Screen
+      scroll
+      padded={false}
+      header={<AppBar title={t("account")} />}
+      contentStyle={{ paddingBottom: theme.spacing.xxxl }}
+    >
       <View style={{ padding: theme.spacing.xl, gap: theme.spacing.xl }}>
         <Card style={{ flexDirection: "row", alignItems: "center", gap: theme.spacing.lg }}>
           <Avatar name={name} size={56} />

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AccessibilityInfo, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import * as Location from "expo-location";
@@ -86,14 +86,22 @@ export default function TrackingScreen() {
   const { t } = useLanguage();
   const theme = useTheme();
 
-  const destination = {
-    latitude: readCoordinate(params.destLat),
-    longitude: readCoordinate(params.destLng),
-  };
-  const origin = {
-    latitude: readCoordinate(params.fromLat),
-    longitude: readCoordinate(params.fromLng),
-  };
+  // Memoised so the tracking effect can depend on the object itself. Rebuilt
+  // fresh each render, it would restart the location watcher on every update.
+  const destination = useMemo(
+    () => ({
+      latitude: readCoordinate(params.destLat),
+      longitude: readCoordinate(params.destLng),
+    }),
+    [params.destLat, params.destLng]
+  );
+  const origin = useMemo(
+    () => ({
+      latitude: readCoordinate(params.fromLat),
+      longitude: readCoordinate(params.fromLng),
+    }),
+    [params.fromLat, params.fromLng]
+  );
 
   const hasDestination = !Number.isNaN(destination.latitude) && !Number.isNaN(destination.longitude);
   const hasOrigin = !Number.isNaN(origin.latitude) && !Number.isNaN(origin.longitude);
@@ -150,7 +158,7 @@ export default function TrackingScreen() {
         routeRequested.current = false;
       }
     },
-    [destination.latitude, destination.longitude, hasDestination]
+    [destination, hasDestination]
   );
 
   /** Tear down the location watcher. Safe to call more than once. */
@@ -213,7 +221,7 @@ export default function TrackingScreen() {
       cancelled = true;
       stopWatching();
     };
-  }, [hasDestination, destination.latitude, destination.longitude, fetchRoute, stopWatching, t]);
+  }, [hasDestination, destination, fetchRoute, stopWatching, t]);
 
   if (!hasDestination) {
     return (

@@ -16,6 +16,8 @@ export interface ScreenProps {
   scroll?: boolean;
   padded?: boolean;
   edges?: readonly Edge[];
+  /** Rendered outside the scroll area, pinned to the top — usually an AppBar. */
+  header?: ReactNode;
   /** Rendered outside the scroll area, pinned to the bottom. */
   footer?: ReactNode;
   contentStyle?: ViewStyle;
@@ -34,6 +36,7 @@ export const Screen = ({
   scroll = false,
   padded = true,
   edges = ['top'],
+  header,
   footer,
   contentStyle,
   style,
@@ -54,6 +57,10 @@ export const Screen = ({
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
+        {/* Kept outside the scroll view so the back control and screen title
+            stay reachable however far the user has scrolled. */}
+        {header}
+
         {scroll ? (
           <ScrollView
             keyboardShouldPersistTaps="handled"
