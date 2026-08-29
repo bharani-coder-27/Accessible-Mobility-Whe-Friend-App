@@ -68,7 +68,7 @@ export default function TripsScreen() {
     })[status];
 
   return (
-    <Screen padded={false}>
+    <Screen padded={false} edges={["top"]}>
       <AppBar title={t("tripsTitle")} />
 
       {loading ? (

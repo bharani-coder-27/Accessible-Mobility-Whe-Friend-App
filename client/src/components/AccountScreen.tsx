@@ -33,6 +33,7 @@ export const AccountScreen = () => {
     <Screen
       scroll
       padded={false}
+      edges={["top"]}
       header={<AppBar title={t("account")} />}
       contentStyle={{ paddingBottom: theme.spacing.xxxl }}
     >

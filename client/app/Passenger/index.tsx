@@ -176,6 +176,7 @@ export default function PassengerHomeScreen() {
     <Screen
       scroll
       padded={false}
+      edges={["top"]}
       header={
         <AppBar
           title={t("appName")}

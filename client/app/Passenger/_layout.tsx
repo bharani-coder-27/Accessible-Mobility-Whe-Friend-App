@@ -1,12 +1,14 @@
 import React from "react";
 import { Tabs } from "expo-router";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useLanguage } from "../../src/contexts/LanguageContext";
 import { useTheme } from "../../src/theme";
 
 export default function PassengerLayout() {
   const theme = useTheme();
   const { t } = useLanguage();
+  const insets = useSafeAreaInsets();
 
   return (
     <Tabs
@@ -15,8 +17,11 @@ export default function PassengerLayout() {
         tabBarActiveTintColor: theme.colors.primaryText,
         tabBarInactiveTintColor: theme.colors.textMuted,
         tabBarStyle: {
-          height: 64,
-          paddingBottom: 8,
+          // The gesture bar / navigation buttons sit below the tab bar, so the
+          // bottom inset is added rather than assumed to be zero. Without this
+          // the labels sit underneath the system navigation on most phones.
+          height: 64 + insets.bottom,
+          paddingBottom: 8 + insets.bottom,
           paddingTop: 8,
           backgroundColor: theme.colors.surface,
           borderTopWidth: theme.highContrast ? 2 : 1,

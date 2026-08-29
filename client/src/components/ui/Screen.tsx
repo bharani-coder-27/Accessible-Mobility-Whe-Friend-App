@@ -15,6 +15,11 @@ export interface ScreenProps {
   /** Wraps content in a ScrollView. Off for screens that own a FlatList or map. */
   scroll?: boolean;
   padded?: boolean;
+  /**
+   * Safe-area edges to inset. Defaults to top and bottom; screens hosted in a
+   * tab navigator should pass `['top']`, because the tab bar already occupies
+   * the bottom inset and insetting twice leaves a visible gap above it.
+   */
   edges?: readonly Edge[];
   /** Rendered outside the scroll area, pinned to the top — usually an AppBar. */
   header?: ReactNode;
@@ -35,7 +40,7 @@ export const Screen = ({
   children,
   scroll = false,
   padded = true,
-  edges = ['top'],
+  edges = ['top', 'bottom'],
   header,
   footer,
   contentStyle,

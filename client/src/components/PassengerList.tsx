@@ -62,7 +62,7 @@ export const PassengerList = ({ status }: Props) => {
   };
 
   return (
-    <Screen padded={false}>
+    <Screen padded={false} edges={["top"]}>
       <AppBar
         title={title}
         subtitle={t("passengerCount", { count: filtered.length })}
