@@ -14,7 +14,6 @@ import { useRouter } from 'expo-router';
 import { images } from '@/constants/images';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { AuthContext } from '../../src/contexts/AuthContext';
-import { AuthContextType } from '@/src/types';
 
 const { width } = Dimensions.get('window');
 
@@ -23,7 +22,7 @@ interface HeaderProps {
 }
 
 export default function Header({ title }: HeaderProps) {
-  const { logout, user } = useContext(AuthContext) as AuthContextType;
+  const { logout, user } = useContext(AuthContext);
   const router = useRouter();
 
   const [sidebarOpen, setSidebarOpen] = useState(false);

@@ -12,10 +12,7 @@ import {
   Animated,
 } from "react-native";
 import { AuthContext } from "../../src/contexts/AuthContext";
-import {
-  Coordinates,
-  AuthContextType,
-} from "../../src/types";
+import { Coordinates } from "../../src/types";
 import LocationInput from "./passComponents/LocationInput";
 import MapSection from "./passComponents/MapSection";
 import LoadingOverlay from "./passComponents/LoadingOverlay";
@@ -34,7 +31,7 @@ import { useLanguage } from "../../src/contexts/LanguageContext";
 const { width } = Dimensions.get("window");
 
 export default function PassengerHomeScreen() {
-  const { logout, user } = useContext(AuthContext) as AuthContextType;
+  const { logout, user } = useContext(AuthContext);
   const { t } = useLanguage();
 
   const [fromAddress, setFromAddress] = useState<string>("");
