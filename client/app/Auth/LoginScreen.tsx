@@ -9,9 +9,11 @@ import { useTheme } from "../../src/theme";
 import api, { errorMessage } from "../../src/services/api";
 import { isValidEmail } from "../../src/utils/validation";
 import { Language, languageNames, supportedLanguages } from "../../src/i18n";
+import { getServerBase, isUsingDefaultServer } from "../../src/services/serverConfig";
 import { BrandMark } from "../../src/components/BrandMark";
 import {
   Button,
+  IconButton,
   Screen,
   SegmentedControl,
   Text,
@@ -77,17 +79,32 @@ export default function LoginScreen() {
 
   return (
     <Screen scroll contentStyle={{ justifyContent: "center", gap: theme.spacing.xxl }}>
-      <View style={{ gap: theme.spacing.lg }}>
+      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }}>
         <BrandMark size={64} />
 
-        <View style={{ gap: theme.spacing.xs }}>
-          <Text variant="display" weight="bold">
-            {t("signInTitle")}
-          </Text>
-          <Text variant="bodyLg" tone="muted">
-            {t("signInSubtitle")}
-          </Text>
-        </View>
+        {/* Reachable before signing in on purpose: if the app's built-in
+            server address is wrong or unreachable, this is the only way to
+            fix it — the account fields below have nothing to check against
+            until this points somewhere real. */}
+        <IconButton
+          icon="cloud-outline"
+          label={t("server")}
+          hint={
+            isUsingDefaultServer()
+              ? t("serverUrlDefault")
+              : t("signedInAs", { name: getServerBase() })
+          }
+          onPress={() => router.push("/settings")}
+        />
+      </View>
+
+      <View style={{ gap: theme.spacing.xs }}>
+        <Text variant="display" weight="bold">
+          {t("signInTitle")}
+        </Text>
+        <Text variant="bodyLg" tone="muted">
+          {t("signInSubtitle")}
+        </Text>
       </View>
 
       {/* Language is offered before sign-in on purpose: a rider who cannot read

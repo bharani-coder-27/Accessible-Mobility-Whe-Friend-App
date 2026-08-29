@@ -37,9 +37,14 @@ function RootNavigator() {
   useEffect(() => {
     if (loading) return;
 
-    const inAuthGroup = segments[0]?.toLowerCase() === "auth";
+    const currentSegment = segments[0]?.toLowerCase();
+    const inAuthGroup = currentSegment === "auth";
+    // Settings holds the server-address field. It must stay reachable while
+    // signed out — otherwise a wrong default address locks the user out of
+    // the one screen that could fix it.
+    const isPublicScreen = inAuthGroup || currentSegment === "settings";
 
-    if (!user && !inAuthGroup) {
+    if (!user && !isPublicScreen) {
       router.replace("/Auth/LoginScreen");
     } else if (user && inAuthGroup) {
       router.replace(user.role === "passenger" ? "/Passenger" : "/Conductor/waiting");
