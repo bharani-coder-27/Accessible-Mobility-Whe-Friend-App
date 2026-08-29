@@ -1,396 +1,351 @@
-import React, { useState } from "react";
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ScrollView } from "react-native";
+import React, { useContext, useMemo, useState } from "react";
+import { View } from "react-native";
 import { useRouter } from "expo-router";
-import { LinearGradient } from "expo-linear-gradient";
-import { FontAwesome } from "@expo/vector-icons";
-import Animated, { useSharedValue, useAnimatedStyle, withSpring } from "react-native-reanimated";
-import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
-import api from '../../src/services/api';
+import DateTimePicker, {
+  DateTimePickerEvent,
+} from "@react-native-community/datetimepicker";
+import Toast from "react-native-toast-message";
+
+import { AuthContext, Role, User } from "../../src/contexts/AuthContext";
+import { useLanguage } from "../../src/contexts/LanguageContext";
+import { useTheme } from "../../src/theme";
+import api, { errorMessage } from "../../src/services/api";
+import {
+  isAlphanumeric,
+  isStrongEnough,
+  isValidDate,
+  isValidEmail,
+  isValidPhone,
+  toIsoDate,
+} from "../../src/utils/validation";
+import {
+  AppBar,
+  Button,
+  Card,
+  Screen,
+  SegmentedControl,
+  Text,
+  TextField,
+} from "../../src/components/ui";
+
+type FieldKey =
+  | "name"
+  | "phone"
+  | "dob"
+  | "email"
+  | "password"
+  | "confirmPassword"
+  | "from"
+  | "to"
+  | "tripCode"
+  | "classOfService"
+  | "deviceId";
+
+type FieldErrors = Partial<Record<FieldKey, string>>;
+
+/** Nobody using a bus service is under one year old; guards against typos. */
+const latestAllowedDob = new Date(
+  new Date().getFullYear() - 1,
+  new Date().getMonth(),
+  new Date().getDate()
+);
 
 export default function RegisterScreen() {
   const router = useRouter();
-  const [name, setName] = useState("");
-  const [phoneNumber, setPhoneNumber] = useState("");
-  const [email, setEmail] = useState("");
-  const [dob, setDob] = useState("");
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [role, setRole] = useState("passenger");
-  const [from, setFrom] = useState("");
-  const [to, setTo] = useState("");
-  const [tripCode, setTripCode] = useState("");
-  const [classOfService, setClassOfService] = useState("");
-  const [deviceId, setDeviceId] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  // Add state and handler
+  const { login } = useContext(AuthContext);
+  const { t } = useLanguage();
+  const theme = useTheme();
+
+  const [role, setRole] = useState<Role>("passenger");
+  const [values, setValues] = useState<Record<FieldKey, string>>({
+    name: "",
+    phone: "",
+    dob: "",
+    email: "",
+    password: "",
+    confirmPassword: "",
+    from: "",
+    to: "",
+    tripCode: "",
+    classOfService: "",
+    deviceId: "",
+  });
+  const [errors, setErrors] = useState<FieldErrors>({});
   const [showDatePicker, setShowDatePicker] = useState(false);
-  const onDateChange = (
-    event: DateTimePickerEvent,
-    selectedDate?: Date | undefined
-  ): void => {
+  const [submitting, setSubmitting] = useState(false);
+
+  const isConductor = role === "conductor";
+
+  const setField = (key: FieldKey) => (value: string) => {
+    setValues((prev) => ({ ...prev, [key]: value }));
+    // Clear the error as soon as the user starts fixing it, rather than
+    // leaving a stale red message under a field they have already corrected.
+    setErrors((prev) => (prev[key] ? { ...prev, [key]: undefined } : prev));
+  };
+
+  const onDateChange = (event: DateTimePickerEvent, selectedDate?: Date) => {
     setShowDatePicker(false);
     if (event.type === "set" && selectedDate) {
-      setDob(selectedDate.toISOString().split('T')[0]);
+      setField("dob")(toIsoDate(selectedDate));
     }
   };
 
-  const buttonScale = useSharedValue(1);
-  const animatedButtonStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: buttonScale.value }],
-  }));
+  const validate = (): FieldErrors => {
+    const next: FieldErrors = {};
 
-  const handleButtonPressIn = () => {
-    buttonScale.value = withSpring(0.95);
-  };
+    if (!values.name.trim()) next.name = t("nameRequired");
+    if (!isValidPhone(values.phone)) next.phone = t("invalidPhone");
+    if (!isValidDate(values.dob)) next.dob = t("dobRequired");
+    if (!isValidEmail(values.email)) next.email = t("invalidEmail");
+    if (!isStrongEnough(values.password)) next.password = t("passwordTooShort");
+    if (values.password !== values.confirmPassword) {
+      next.confirmPassword = t("passwordMismatch");
+    }
 
-  const handleButtonPressOut = () => {
-    buttonScale.value = withSpring(1);
-  };
+    if (isConductor) {
+      if (!values.from.trim()) next.from = t("conductorFieldsRequired");
+      if (!values.to.trim()) next.to = t("conductorFieldsRequired");
+      if (!values.tripCode.trim()) next.tripCode = t("conductorFieldsRequired");
+      if (!values.classOfService.trim()) next.classOfService = t("conductorFieldsRequired");
+      if (!values.deviceId.trim()) next.deviceId = t("conductorFieldsRequired");
+      else if (!isAlphanumeric(values.deviceId)) next.deviceId = t("deviceIdInvalid");
+    }
 
-  const togglePasswordVisibility = () => {
-    setShowPassword(!showPassword);
-  };
-
-  const toggleConfirmPasswordVisibility = () => {
-    setShowConfirmPassword(!showConfirmPassword);
+    return next;
   };
 
   const handleRegister = async () => {
-    if (!name || !email || !phoneNumber || !password || !confirmPassword || !dob) {
-      Alert.alert("Error", "Please fill in all required fields");
-      return;
-    }
-    if (role === "conductor" && (!from || !to || !tripCode || !classOfService || !deviceId)) {
-      Alert.alert("Error", "Please fill in all conductor fields (From, To, Trip Code, Class of Service, Device ID)");
-      return;
-    }
+    const found = validate();
+    setErrors(found);
+    if (Object.keys(found).length > 0) return;
 
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      Alert.alert("Error", "Please enter a valid email address");
-      return;
-    }
-    const phoneRegex = /^[0-9]{10}$/;
-    if (!phoneRegex.test(phoneNumber)) {
-      Alert.alert("Error", "Please enter a valid 10-digit phone number");
-      return;
-    }
-    const dobRegex = /^\d{4}-\d{2}-\d{2}$/;
-    if (!dobRegex.test(dob)) {
-      Alert.alert("Error", "Please enter date of birth in YYYY-MM-DD format");
-      return;
-    }
-    if (password !== confirmPassword) {
-      Alert.alert("Error", "Passwords do not match");
-      return;
-    }
-    if (role === "conductor" && !/^[A-Za-z0-9]+$/.test(deviceId)) {
-      Alert.alert("Error", "Device ID must be alphanumeric");
-      return;
-    }
-
+    setSubmitting(true);
     try {
-      const response = await api.post("/auth/register", {
-        name,
-        email,
-        phone_number: phoneNumber,
-        dob,
-        password,
+      const { data } = await api.post<{ user?: User; token?: string }>("/auth/register", {
+        name: values.name.trim(),
+        email: values.email.trim(),
+        phone_number: values.phone.trim(),
+        dob: values.dob,
+        password: values.password,
         role,
         is_active: true,
-        ...(role === "conductor" && {
-          from,
-          to,
-          tripCode,
-          classOfService,
-          deviceId,
+        ...(isConductor && {
+          from: values.from.trim(),
+          to: values.to.trim(),
+          tripCode: values.tripCode.trim(),
+          classOfService: values.classOfService.trim(),
+          deviceId: values.deviceId.trim(),
         }),
       });
-      console.log("Registration response:", response.data);
 
-      Alert.alert("Success", "Registration successful! Login to continue.");
-      router.push("/Auth/LoginScreen");
+      if (data?.user && data?.token) {
+        // Registration returns a session, so drop straight into the app rather
+        // than sending the user to sign in with credentials they just chose.
+        await login(data.user, data.token);
+        return;
+      }
+
+      router.replace("/Auth/LoginScreen");
     } catch (error) {
-      console.error("Registration error:", error);
-      Alert.alert("Error", "Registration failed. Please try again.");
+      Toast.show({
+        type: "error",
+        text1: t("registrationFailed"),
+        text2: errorMessage(error, t("checkConnection")),
+      });
+    } finally {
+      setSubmitting(false);
     }
   };
 
+  const roleOptions = useMemo(
+    () => [
+      { value: "passenger" as const, label: t("passenger"), icon: "person-outline" as const },
+      { value: "conductor" as const, label: t("conductor"), icon: "bus-outline" as const },
+    ],
+    [t]
+  );
+
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.title}>
-        <FontAwesome name="user-plus" size={28} color="#2c3e50" /> Create an Account
-      </Text>
+    <Screen
+      scroll
+      padded={false}
+      contentStyle={{ paddingBottom: theme.spacing.xxxl }}
+    >
+      <AppBar title={t("registerTitle")} subtitle={t("registerSubtitle")} showBack />
 
-      <Text style={styles.roleLabel}>Select Your Role</Text>
-      <View style={styles.roleContainer}>
-        <TouchableOpacity
-          style={[styles.roleButton, role === "passenger" && styles.roleButtonSelected]}
-          onPress={() => setRole("passenger")}
-        >
-          <Text style={[styles.roleButtonText, role === "passenger" && styles.roleButtonTextSelected]}>
-            Passenger
+      <View style={{ padding: theme.spacing.xl, gap: theme.spacing.xxl }}>
+        <View style={{ gap: theme.spacing.sm }}>
+          <Text variant="footnote" weight="medium" tone="muted">
+            {t("accountType")}
           </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.roleButton, role === "conductor" && styles.roleButtonSelected]}
-          onPress={() => setRole("conductor")}
-        >
-          <Text style={[styles.roleButtonText, role === "conductor" && styles.roleButtonTextSelected]}>
-            Conductor
-          </Text>
-        </TouchableOpacity>
-      </View>
+          <SegmentedControl
+            label={t("accountType")}
+            value={role}
+            onChange={setRole}
+            options={roleOptions}
+          />
+        </View>
 
-      <TextInput
-        style={styles.input}
-        placeholder="Full Name"
-        value={name}
-        placeholderTextColor="#000"
-        onChangeText={setName}
-        autoCapitalize="words"
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Phone Number (10 digits)"
-        value={phoneNumber}
-        placeholderTextColor="#000"
-        onChangeText={setPhoneNumber}
-        keyboardType="phone-pad"
-      />
-      <TouchableOpacity onPress={() => setShowDatePicker(true)} style={styles.inputContainer}>
-        <TextInput
-          style={styles.inputWithIcon}
-          placeholder="Date of Birth (YYYY-MM-DD)"
-          value={dob}
-          placeholderTextColor="#000"
-          editable={false}
-        />
-        <FontAwesome name="calendar" size={20} color="#2c3e50" style={styles.icon} />
-      </TouchableOpacity>
-      {showDatePicker && (
-        <DateTimePicker
-          value={dob ? new Date(dob) : new Date()}
-          mode="date"
-          onChange={onDateChange}
-        />
-      )}
-      <TextInput
-        style={styles.input}
-        placeholder="Email Address"
-        value={email}
-        placeholderTextColor="#000"
-        onChangeText={setEmail}
-        keyboardType="email-address"
-        autoCapitalize="none"
-      />
-      <View style={styles.inputContainer}>
-        <TextInput
-          style={styles.inputWithIcon}
-          placeholder="Password"
-          value={password}
-          placeholderTextColor="#000"
-          onChangeText={setPassword}
-          secureTextEntry={!showPassword}
-          autoCapitalize="none"
-        />
-        <TouchableOpacity onPress={togglePasswordVisibility} style={styles.icon}>
-          <FontAwesome name={showPassword ? "eye" : "eye-slash"} size={20} color="#2c3e50" />
-        </TouchableOpacity>
-      </View>
-      <View style={styles.inputContainer}>
-        <TextInput
-          style={styles.inputWithIcon}
-          placeholder="Confirm Password"
-          value={confirmPassword}
-          placeholderTextColor="#000"
-          onChangeText={setConfirmPassword}
-          secureTextEntry={!showConfirmPassword}
-          autoCapitalize="none"
-        />
-        <TouchableOpacity onPress={toggleConfirmPasswordVisibility} style={styles.icon}>
-          <FontAwesome name={showConfirmPassword ? "eye" : "eye-slash"} size={20} color="#2c3e50" />
-        </TouchableOpacity>
-      </View>
-      {role === "conductor" && (
-        <>
-          <Text style={styles.label}>Conductor Details</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="From (e.g., Madukkarai)"
-            value={from}
-            placeholderTextColor="#000"
-            onChangeText={setFrom}
+        <View style={{ gap: theme.spacing.lg }}>
+          <TextField
+            label={t("fullName")}
+            icon="person-outline"
+            required
+            value={values.name}
+            onChangeText={setField("name")}
+            error={errors.name}
             autoCapitalize="words"
+            autoComplete="name"
+            textContentType="name"
           />
-          <TextInput
-            style={styles.input}
-            placeholder="To (e.g., Saibaba Colony)"
-            value={to}
-            placeholderTextColor="#000"
-            onChangeText={setTo}
-            autoCapitalize="words"
+
+          <TextField
+            label={t("phone")}
+            icon="call-outline"
+            required
+            hint={t("phoneHint")}
+            value={values.phone}
+            onChangeText={setField("phone")}
+            error={errors.phone}
+            keyboardType="phone-pad"
+            maxLength={10}
+            autoComplete="tel"
           />
-          <TextInput
-            style={styles.input}
-            placeholder="Trip Code (e.g., 3B)"
-            value={tripCode}
-            placeholderTextColor="#000"
-            onChangeText={setTripCode}
+
+          <TextField
+            label={t("dob")}
+            icon="calendar-outline"
+            required
+            hint={t("dobHint")}
+            value={values.dob}
+            error={errors.dob}
+            onPress={() => setShowDatePicker(true)}
+            placeholder="YYYY-MM-DD"
+          />
+
+          {showDatePicker && (
+            <DateTimePicker
+              value={values.dob ? new Date(values.dob) : latestAllowedDob}
+              mode="date"
+              maximumDate={latestAllowedDob}
+              onChange={onDateChange}
+            />
+          )}
+
+          <TextField
+            label={t("email")}
+            icon="mail-outline"
+            required
+            value={values.email}
+            onChangeText={setField("email")}
+            error={errors.email}
+            keyboardType="email-address"
             autoCapitalize="none"
+            autoComplete="email"
+            textContentType="emailAddress"
           />
-          <TextInput
-            style={styles.input}
-            placeholder="Class of Service (e.g., Low Floor Bus)"
-            value={classOfService}
-            placeholderTextColor="#000"
-            onChangeText={setClassOfService}
-            autoCapitalize="words"
-          />
-          <TextInput
-            style={styles.input}
-            placeholder="Device ID (e.g., MGR976883094)"
-            value={deviceId}
-            placeholderTextColor="#000"
-            onChangeText={setDeviceId}
+
+          <TextField
+            label={t("password")}
+            icon="lock-closed-outline"
+            required
+            secure
+            hint={t("passwordHint")}
+            value={values.password}
+            onChangeText={setField("password")}
+            error={errors.password}
             autoCapitalize="none"
+            autoComplete="new-password"
+            textContentType="newPassword"
           />
-        </>
-      )}
 
-      <TouchableOpacity
-        onPressIn={handleButtonPressIn}
-        onPressOut={handleButtonPressOut}
-        onPress={handleRegister}
-      >
-        <Animated.View style={[styles.registerButton, animatedButtonStyle]}>
-          <LinearGradient colors={["#2ecc71", "#27ae60"]} style={styles.gradientButton}>
-            <Text style={styles.buttonText}>Register</Text>
-          </LinearGradient>
-        </Animated.View>
-      </TouchableOpacity>
+          <TextField
+            label={t("confirmPassword")}
+            icon="lock-closed-outline"
+            required
+            secure
+            value={values.confirmPassword}
+            onChangeText={setField("confirmPassword")}
+            error={errors.confirmPassword}
+            autoCapitalize="none"
+            autoComplete="new-password"
+          />
+        </View>
 
-      <TouchableOpacity onPress={() => router.push("/Auth/LoginScreen")}>
-        <Text style={styles.loginLink}>Already have an account? Login</Text>
-      </TouchableOpacity>
-    </ScrollView>
+        {isConductor && (
+          <Card variant="alt" style={{ gap: theme.spacing.lg }}>
+            <Text variant="title" weight="semibold">
+              {t("conductorDetails")}
+            </Text>
+
+            <TextField
+              label={t("routeFrom")}
+              icon="navigate-outline"
+              required
+              value={values.from}
+              onChangeText={setField("from")}
+              error={errors.from}
+              autoCapitalize="words"
+            />
+
+            <TextField
+              label={t("routeTo")}
+              icon="flag-outline"
+              required
+              value={values.to}
+              onChangeText={setField("to")}
+              error={errors.to}
+              autoCapitalize="words"
+            />
+
+            <TextField
+              label={t("tripCode")}
+              icon="pricetag-outline"
+              required
+              value={values.tripCode}
+              onChangeText={setField("tripCode")}
+              error={errors.tripCode}
+              autoCapitalize="characters"
+            />
+
+            <TextField
+              label={t("classOfService")}
+              icon="bus-outline"
+              required
+              value={values.classOfService}
+              onChangeText={setField("classOfService")}
+              error={errors.classOfService}
+              autoCapitalize="words"
+            />
+
+            <TextField
+              label={t("deviceId")}
+              icon="hardware-chip-outline"
+              required
+              value={values.deviceId}
+              onChangeText={setField("deviceId")}
+              error={errors.deviceId}
+              autoCapitalize="characters"
+            />
+          </Card>
+        )}
+
+        <View style={{ gap: theme.spacing.md }}>
+          <Button
+            label={t("createAccount")}
+            onPress={handleRegister}
+            loading={submitting}
+            size="lg"
+            icon="checkmark-circle-outline"
+          />
+
+          <Button
+            label={t("haveAccount")}
+            onPress={() => router.replace("/Auth/LoginScreen")}
+            variant="ghost"
+          />
+        </View>
+      </View>
+    </Screen>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flexGrow: 1,
-    padding: 20,
-    backgroundColor: "#f0f4f8",
-    justifyContent: "center",
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: "700",
-    color: "#2c3e50",
-    textAlign: "center",
-    marginBottom: 20,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: "#ccd1d9",
-    padding: 15,
-    marginVertical: 10,
-    borderRadius: 12,
-    backgroundColor: "#fff",
-    fontSize: 16,
-    color: '#000',
-    shadowColor: "#000",
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  inputContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#ccd1d9",
-    borderRadius: 12,
-    marginVertical: 10,
-    backgroundColor: "#fff",
-    shadowColor: "#000",
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  inputWithIcon: {
-    flex: 1,
-    padding: 15,
-    fontSize: 16,
-  },
-  icon: {
-    padding: 10,
-  },
-  roleLabel: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#2c3e50",
-    marginVertical: 10,
-  },
-  label: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#2c3e50",
-    marginTop: 10,
-  },
-  roleContainer: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 20,
-  },
-  roleButton: {
-    flex: 1,
-    padding: 12,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: "#ccd1d9",
-    backgroundColor: "#fff",
-    alignItems: "center",
-    marginHorizontal: 5,
-    shadowColor: "#000",
-    shadowOpacity: 0.1,
-    shadowRadius: 5,
-    elevation: 3,
-  },
-  roleButtonSelected: {
-    backgroundColor: "#3498db",
-    borderColor: "#3498db",
-  },
-  roleButtonText: {
-    fontSize: 14,
-    color: "#34495e",
-    fontWeight: "500",
-  },
-  roleButtonTextSelected: {
-    color: "#fff",
-    fontWeight: "600",
-  },
-  registerButton: {
-    borderRadius: 12,
-    marginVertical: 20,
-    overflow: "hidden",
-  },
-  gradientButton: {
-    padding: 15,
-    borderRadius: 12,
-    alignItems: "center",
-  },
-  buttonText: {
-    color: "#fff",
-    fontSize: 18,
-    fontWeight: "600",
-  },
-  loginLink: {
-    color: "#3498db",
-    fontSize: 16,
-    textAlign: "center",
-    textDecorationLine: "underline",
-    marginBottom: 20,
-  },
-});
