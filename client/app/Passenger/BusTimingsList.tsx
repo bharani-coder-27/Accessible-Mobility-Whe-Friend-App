@@ -48,9 +48,10 @@ export default function BusTimingsScreen() {
     setNotifyingBusId(bus.bus_id);
     try {
       await api.post("/notify", {
+        // No user_id: the server reads the passenger from the token, so a
+        // stale cached id can never be sent.
         bus_id: bus.bus_id,
         bus_stop_id: selectedStop.id,
-        user_id: user.id,
         timing: bus.arrival_time,
         message: `Passenger ${user.name} is waiting at ${selectedStop.stop_name} for bus ${bus.bus_name}`,
       });
@@ -126,6 +127,16 @@ export default function BusTimingsScreen() {
           const busy = notifyingBusId === item.bus_id;
           const accessible = item.wheelchair_accessible;
 
+          // Route names are stored with the trip code as a prefix ("12B Ukkadam
+          // - Gandhipuram"), so showing the code again underneath repeated it
+          // and pushed the useful half of the name into an ellipsis.
+          const code = item.trip_code?.trim() ?? "";
+          const fullName = item.bus_name?.trim() ?? "";
+          const routeName =
+            code && fullName.toLowerCase().startsWith(code.toLowerCase())
+              ? fullName.slice(code.length).replace(/^[\s·:-]+/, "")
+              : fullName;
+
           return (
             <Pressable
               accessibilityRole="button"
@@ -172,12 +183,12 @@ export default function BusTimingsScreen() {
                 </View>
 
                 <View style={{ flex: 1, gap: 2 }}>
-                  <Text variant="bodyLg" weight="semibold" numberOfLines={1}>
-                    {item.bus_name}
+                  <Text variant="bodyLg" weight="semibold" numberOfLines={2}>
+                    {routeName || fullName}
                   </Text>
-                  {item.trip_code ? (
+                  {code ? (
                     <Text variant="footnote" tone="muted">
-                      {item.trip_code}
+                      {code}
                     </Text>
                   ) : null}
                 </View>
