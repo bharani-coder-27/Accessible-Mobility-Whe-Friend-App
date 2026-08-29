@@ -188,6 +188,13 @@ export default function TrackingScreen() {
       }
       setPermission("granted");
 
+      // Fetch the route immediately from the resolved starting point, rather
+      // than waiting for the first live GPS fix. That fix can take anywhere
+      // from a few seconds to never — weak signal, indoors, or an emulator
+      // with no simulated location — during which the route line never drew
+      // even though tracking was otherwise working.
+      if (hasOrigin) fetchRoute(origin);
+
       watcher.current = await Location.watchPositionAsync(
         { accuracy: Location.Accuracy.High, distanceInterval: 10, timeInterval: 10000 },
         (position) => {
@@ -221,7 +228,7 @@ export default function TrackingScreen() {
       cancelled = true;
       stopWatching();
     };
-  }, [hasDestination, destination, fetchRoute, stopWatching, t]);
+  }, [hasDestination, destination, hasOrigin, origin, fetchRoute, stopWatching, t]);
 
   if (!hasDestination) {
     return (
