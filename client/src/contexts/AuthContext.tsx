@@ -8,7 +8,7 @@ import React, {
 } from "react";
 import { getFromStorage, saveToStorage, removeFromStorage } from "../utils/storage";
 import { registerForPushNotificationsAsync } from "../utils/notifications";
-import api, { setAuthToken } from "../services/api";
+import api, { isAuthError, setAuthToken, setUnauthorizedHandler } from "../services/api";
 
 export type Role = "passenger" | "conductor";
 
@@ -85,6 +85,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           setAuthToken(storedToken);
           setUser(storedUser);
           setToken(storedToken);
+          verifySession();
         }
       } catch (err) {
         console.error("Error loading user from storage", err);
@@ -94,6 +95,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     };
 
     loadUser();
+    // Deliberately runs once on mount; verifySession is stable for this purpose.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const login = useCallback(async (userData: User, nextToken: string) => {
@@ -135,6 +138,31 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       console.warn("Could not refresh profile", error);
     }
   }, [applyUser]);
+
+  /**
+   * Confirm a restored session is still real, and refresh the cached profile.
+   *
+   * Only a rejected session signs the user out — a network failure must not,
+   * or the app would sign people out every time it opened out of coverage.
+   * Without this, a session whose account no longer exists stays "signed in"
+   * and only fails later, at the point of booking.
+   */
+  const verifySession = useCallback(async () => {
+    try {
+      const { data } = await api.get<{ user: User }>("/auth/me");
+      if (data?.user) await applyUser(data.user);
+    } catch (error) {
+      if (isAuthError(error)) await logout();
+    }
+  }, [applyUser, logout]);
+
+  // Any 401 mid-session ends it, rather than leaving the app acting signed in.
+  useEffect(() => {
+    setUnauthorizedHandler(() => {
+      logout();
+    });
+    return () => setUnauthorizedHandler(null);
+  }, [logout]);
 
   const value = useMemo<AuthContextType>(
     () => ({ user, loading, token, login, logout, refreshUser, applyUser }),

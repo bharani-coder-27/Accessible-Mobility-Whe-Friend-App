@@ -24,8 +24,37 @@ api.interceptors.request.use((config) => {
   if (authToken) {
     config.headers.Authorization = `Bearer ${authToken}`;
   }
+  // ngrok's free tier serves an HTML interstitial to anything it takes for a
+  // browser. This header opts out, so a tunnelled API returns JSON rather than
+  // a page that fails to parse. Harmless when not behind ngrok.
+  config.headers["ngrok-skip-browser-warning"] = "true";
   return config;
 });
+
+/** True when the server rejected the session rather than the request. */
+export const isAuthError = (error: unknown) =>
+  isAxiosError(error) && (error.response?.status === 401 || error.response?.status === 403);
+
+let onUnauthorized: (() => void) | null = null;
+
+/**
+ * Called when any request comes back 401.
+ *
+ * A session can stop being valid while the app is open — the token expires, or
+ * the account it points at is gone. Without this the app keeps acting signed
+ * in and fails at the next write with a confusing per-screen error.
+ */
+export const setUnauthorizedHandler = (handler: (() => void) | null) => {
+  onUnauthorized = handler;
+};
+
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (isAuthError(error)) onUnauthorized?.();
+    return Promise.reject(error);
+  }
+);
 
 /**
  * Pull a human-readable message out of a failed request.
