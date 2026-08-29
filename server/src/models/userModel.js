@@ -73,3 +73,54 @@ export const createUser = async (
 export const findUserByEmail = async (email) => {
   return prisma.user.findUnique({ where: { email } });
 };
+/**
+ * Find a user by id, without the password hash.
+ * @returns {object|null} The user record or null
+ */
+export const findUserById = async (id) => {
+  return prisma.user.findUnique({
+    where: { id },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      dob: true,
+      phone_number: true,
+      role: true,
+      is_active: true,
+      from: true,
+      to: true,
+      trip_code: true,
+      class_of_service: true,
+      device_id: true,
+      bus_id: true,
+      created_at: true,
+    },
+  });
+};
+
+/**
+ * Update the editable fields of a user's own profile.
+ *
+ * Only the fields present in `fields` are written, so a partial update from
+ * the profile screen never blanks out values it did not send. Identity fields
+ * (email, role, password) are deliberately not editable here.
+ *
+ * @param {number} id
+ * @param {object} fields
+ * @returns {object} The updated user, without the password hash
+ */
+export const updateUserProfile = async (id, fields) => {
+  const editable = ['name', 'phone_number', 'from', 'to', 'trip_code', 'class_of_service'];
+  const data = {};
+
+  for (const key of editable) {
+    if (fields[key] !== undefined) data[key] = fields[key];
+  }
+  if (fields.dob !== undefined) {
+    data.dob = fields.dob ? new Date(fields.dob) : null;
+  }
+
+  await prisma.user.update({ where: { id }, data });
+  return findUserById(id);
+};
