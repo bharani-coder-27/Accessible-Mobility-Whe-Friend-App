@@ -6,7 +6,7 @@ import { protect } from '../middleWare/authMiddleWare.js';
 const router = express.Router();
 
 // Create a notification (used by PassengerHomeScreen)
-router.post('/', createNotificationHandler);
+router.post('/', protect, createNotificationHandler);
 
 // Get pending notifications for a bus (for conductors)
 // router.get('/:bus_id', protect, getPendingNotificationsHandler); // Use with authentication
