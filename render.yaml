@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: wheelchair-server
+    runtime: node
+    rootDir: server
+    buildCommand: npm ci
+    startCommand: npm run db:migrate:deploy && npm start
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: DATABASE_URL_POOLED
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: NODE_ENV
+        value: production
