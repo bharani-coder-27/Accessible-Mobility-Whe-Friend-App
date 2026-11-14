@@ -1,6 +1,7 @@
+const productionServerBase = "https://accessible-mobility-whe-friend-app.onrender.com";
 const configuredApiUrl = process.env.EXPO_PUBLIC_API_URL?.trim();
 
-export const apiBaseUrl = configuredApiUrl || "http://10.0.2.2:8801/api";
+export const apiBaseUrl = configuredApiUrl || `${productionServerBase}/api`;
 
 /**
  * The server root, without the `/api` suffix.
@@ -11,7 +12,7 @@ export const apiBaseUrl = configuredApiUrl || "http://10.0.2.2:8801/api";
  * updates silently never arrive.
  */
 export const defaultServerBase = (
-  process.env.EXPO_PUBLIC_SOCKET_URL?.trim() || apiBaseUrl.replace(/\/api\/?$/, "")
+  process.env.EXPO_PUBLIC_SOCKET_URL?.trim() || productionServerBase
 ).replace(/\/+$/, "");
 
 export const googleMapsApiKey = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY?.trim() || "";
