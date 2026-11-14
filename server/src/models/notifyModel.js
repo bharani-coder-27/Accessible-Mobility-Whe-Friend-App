@@ -171,11 +171,7 @@ export const updateNotificationStatus = async (notification_id, bus_id) => {
         bus_id: updated.bus_id,
         notification_id: updated.id,
       });
-    } else {
-      console.log(`⚠️ No Expo token for user ${notification.user.id}`);
     }
-
-    console.log(`✅ Notification status updated to ${newStatus} for ID ${notification_id}`);
 
     return {
       id: updated.id,

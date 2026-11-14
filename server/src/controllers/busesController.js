@@ -3,7 +3,6 @@ import { getBusTimings, getNearBusStops } from '../models/busModel.js';
 // Get nearest bus stops
 export const getNearestStops = async (req, res) => {
   const { latitude, longitude, radius = '5000', city } = req.query;
-  console.log(req.query);
 
     if (!latitude || !longitude) {
       return res.status(400).json({ error: 'Latitude and longitude are required' });
@@ -51,8 +50,7 @@ export const getBusTimingsController = async (req, res) => {
 
     try {
         const timings = await getBusTimings(stop_id, formattedTime);
-        console.log(`Successfully fetched timings for stop ID: ${stop_id}`);
-        res.status(200).json(timings);
+          res.status(200).json(timings);
     } catch (error) {
         res.status(500).json({ error: 'Failed to fetch bus timings' });
     }

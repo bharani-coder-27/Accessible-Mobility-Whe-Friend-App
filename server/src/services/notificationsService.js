@@ -11,7 +11,6 @@ export async function sendPushNotification(expo_token, title, body, data = {}) {
       body,
       data, // Optional: for deep linking in passenger app
     });
-    console.log(`✅ Push notification sent to ${expo_token}`);
   } catch (err) {
     console.error('❌ Error sending push notification:', err.message);
   }

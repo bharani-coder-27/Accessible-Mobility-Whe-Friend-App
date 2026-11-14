@@ -38,18 +38,11 @@ app.use('/api/notify', notifyRoutes);
 app.use(errorHandler);
 
 io.on('connection', (socket) => {
-    console.log('New client connected:', socket.id);
-
     socket.on('joinBusRoom', (data) => {
         const { bus_id } = data;
         if (bus_id) {
             socket.join(`bus_${bus_id}`);
-            console.log(`Socket ${socket.id} joined room bus_${bus_id}`);
         }
-    });
-
-    socket.on('disconnect', () => {
-        console.log('Client disconnected:', socket.id);
     });
 });
 

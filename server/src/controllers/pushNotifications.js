@@ -4,7 +4,6 @@ import { sendPushNotification } from '../services/notificationsService.js';
 // ✅ Start Travel (triggered by conductor)
 export const startTravel = async (req, res) => {
   const { bus_id, user_id } = req.body;
-  console.log(req.body);
 
   try {
     // Step 1: Get passenger token
@@ -16,9 +15,7 @@ export const startTravel = async (req, res) => {
     if (!user) {
       return res.status(404).json({ message: 'Passenger not found' });
     }
-
     const token = user.expo_token;
-    console.log('🎯 Passenger token:', token);
 
     // Step 2: Insert notification into DB
     const message = "Your bus journey is starting. Please confirm if it's you.";
@@ -32,8 +29,6 @@ export const startTravel = async (req, res) => {
         travel_status: 'pending',
       },
     });
-    console.log('📩 Notification inserted');
-
     // Step 3: Send Expo push notification
     if (token) {
       await sendPushNotification(token, 'Confirm Your Travel', message, {
@@ -43,7 +38,6 @@ export const startTravel = async (req, res) => {
       });
     }
 
-    console.log('✅ Push notification sent');
     return res.status(200).json({ message: 'Notification sent for confirmation' });
   } catch (error) {
     console.error('❌ startTravel error:', error);
@@ -90,7 +84,6 @@ export const confirmTravel = async (req, res) => {
       );
     }
 
-    console.log(`✅ Travel confirmed by passenger ${user_id}`);
     return res.status(200).json({ message: 'Travel confirmed successfully' });
   } catch (error) {
     console.error('❌ confirmTravel error:', error);
@@ -136,7 +129,6 @@ export const completeTravel = async (req, res) => {
       });
     }
 
-    console.log(`✅ Travel completion notification sent to user ${user_id}`);
     return res.status(200).json({ message: 'Travel completion notified successfully' });
   } catch (err) {
     console.error('❌ completeTravel error:', err);
