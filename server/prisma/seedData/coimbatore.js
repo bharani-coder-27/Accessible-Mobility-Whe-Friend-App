@@ -12,6 +12,7 @@
 export const busStops = [
   // ── South and south-west ────────────────────────────────────────────────
   { stop_name: "Ukkadam Bus Stand", latitude: 10.9895, longitude: 76.956, area: "Ukkadam" },
+  { stop_name: "B.K. Pudur", latitude: 10.94005, longitude: 76.954224, area: "B.K. Pudur" },
   { stop_name: "Sungam", latitude: 10.9822, longitude: 76.9628, area: "Sungam" },
   { stop_name: "Athupalam", latitude: 10.9723, longitude: 76.9601, area: "Athupalam" },
   { stop_name: "Kurichi", latitude: 10.941, longitude: 76.96, area: "Kurichi" },
@@ -71,6 +72,50 @@ export const busStops = [
  */
 export const routes = [
   {
+    name: "B.K. Pudur - Ukkadam",
+    trip_code: "BKP-UKK",
+    device_id: "CBEBKP001",
+    wheelchair_accessible: true,
+    class_of_service: "Low Floor Bus",
+    headway: 30,
+    firstDeparture: "06:00",
+    lastDeparture: "21:00",
+    stops: [
+      { stop_name: "B.K. Pudur", offset: 0 },
+      { stop_name: "Kuniyamuthur", offset: 5 },
+      { stop_name: "Podanur Junction", offset: 10 },
+      { stop_name: "Ukkadam Bus Stand", offset: 18 },
+    ],
+    conductor: {
+      name: "Karthik Raj",
+      email: "karthik.bkpudur@whefriend.test",
+      phone_number: "9843021001",
+      dob: "1986-02-14",
+    },
+  },
+  {
+    name: "Ukkadam - B.K. Pudur",
+    trip_code: "UKK-BKP",
+    device_id: "CBEBKP002",
+    wheelchair_accessible: true,
+    class_of_service: "Low Floor Bus",
+    headway: 30,
+    firstDeparture: "06:15",
+    lastDeparture: "21:15",
+    stops: [
+      { stop_name: "Ukkadam Bus Stand", offset: 0 },
+      { stop_name: "Podanur Junction", offset: 8 },
+      { stop_name: "Kuniyamuthur", offset: 13 },
+      { stop_name: "B.K. Pudur", offset: 18 },
+    ],
+    conductor: {
+      name: "Meena Suresh",
+      email: "meena.bkpudur@whefriend.test",
+      phone_number: "9843021002",
+      dob: "1989-07-08",
+    },
+  },
+  {
     name: "12B Ukkadam - Gandhipuram",
     trip_code: "12B",
     device_id: "CBE12B001",
@@ -93,6 +138,31 @@ export const routes = [
       email: "murugan.conductor@whefriend.test",
       phone_number: "9843012001",
       dob: "1985-04-12",
+    },
+  },
+  {
+    name: "Gandhipuram - Ukkadam",
+    trip_code: "GND-UKK",
+    device_id: "CBEGND005",
+    wheelchair_accessible: true,
+    class_of_service: "Low Floor Bus",
+    headway: 15,
+    firstDeparture: "05:45",
+    lastDeparture: "22:45",
+    stops: [
+      { stop_name: "Gandhipuram Bus Stand", offset: 0 },
+      { stop_name: "Race Course", offset: 7 },
+      { stop_name: "Coimbatore Junction Railway Station", offset: 12 },
+      { stop_name: "Town Hall", offset: 16 },
+      { stop_name: "Poomarket", offset: 19 },
+      { stop_name: "Sukrawarpet", offset: 21 },
+      { stop_name: "Ukkadam Bus Stand", offset: 24 },
+    ],
+    conductor: {
+      name: "Sathish Kumar",
+      email: "sathish.gandhipuram@whefriend.test",
+      phone_number: "9843021005",
+      dob: "1987-11-19",
     },
   },
   {
