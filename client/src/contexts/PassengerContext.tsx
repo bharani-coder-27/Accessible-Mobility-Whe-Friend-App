@@ -29,6 +29,7 @@ export type Passenger = {
   message: string;
   bus_stop_name: string | null;
   passenger_name: string;
+  payment: { amount: number; method: "cash" | "gpay"; status: "paid" | "unpaid" };
 };
 
 type PassengerContextType = {

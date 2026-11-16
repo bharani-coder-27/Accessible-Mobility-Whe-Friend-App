@@ -53,6 +53,10 @@ export default function BusTimingsScreen() {
         bus_id: bus.bus_id,
         bus_stop_id: selectedStop.id,
         timing: bus.arrival_time,
+        from_lat: fromCoords?.latitude,
+        from_lng: fromCoords?.longitude,
+        dest_lat: toCoords?.latitude,
+        dest_lng: toCoords?.longitude,
         message: `Passenger ${user.name} is waiting at ${selectedStop.stop_name} for bus ${bus.bus_name}`,
       });
 

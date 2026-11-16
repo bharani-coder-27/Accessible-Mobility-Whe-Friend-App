@@ -154,6 +154,18 @@ export const PassengerList = ({ status }: Props) => {
                 ) : null}
               </View>
 
+              <Badge
+                label={
+                  item.payment?.status !== "paid"
+                    ? t("notPaid")
+                    : item.payment.method === "gpay"
+                      ? t("paidViaGPay")
+                      : t("paidInCash")
+                }
+                tone={item.payment?.status === "paid" ? "success" : "warning"}
+                icon={item.payment?.status === "paid" ? "checkmark-circle" : "alert-circle-outline"}
+              />
+
               {status !== "completed" ? (
                 <Button
                   label={actionLabel}

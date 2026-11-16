@@ -185,7 +185,7 @@ export default function RegisterScreen() {
           />
         </View>
 
-        <View style={{ gap: theme.spacing.lg }}>
+        <View style={{ gap: theme.spacing.lg, paddingBottom: theme.spacing.xxl }}>
           <TextField
             label={t("fullName")}
             icon="person-outline"

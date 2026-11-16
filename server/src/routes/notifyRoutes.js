@@ -1,5 +1,5 @@
 import express from 'express';
-import { createNotificationHandler, getBusNotificationsHandler, updateNotificationStatusHandler, savePushTokenHandler, getMyNotificationsHandler } from '../controllers/notifyController.js';
+import { createNotificationHandler, getBusNotificationsHandler, updateNotificationStatusHandler, savePushTokenHandler, getMyNotificationsHandler, updatePaymentHandler } from '../controllers/notifyController.js';
 import { startTravel, confirmTravel, completeTravel } from '../controllers/pushNotifications.js';
 import { protect } from '../middleWare/authMiddleWare.js';
 
@@ -19,6 +19,7 @@ router.put('/markseen', updateNotificationStatusHandler); // No authentication
 // Passenger's own trip history. Protected, and scoped to req.user.id so a
 // passenger can only ever read their own trips.
 router.get('/history', protect, getMyNotificationsHandler);
+router.put('/payment', protect, updatePaymentHandler);
 
 // Save Expo push token (used by mobile app)
 router.post('/savePushToken', savePushTokenHandler);

@@ -31,7 +31,7 @@ export const getBusTimings = async (stop_id, formattedTime) => {
       },
       include: {
         bus: {
-          select: { id: true, name: true, trip_code: true, wheelchair_accessible: true },
+          select: { id: true, name: true, trip_code: true, wheelchair_accessible: true, fare: true },
         },
       },
       orderBy: { arrival_time: 'asc' },
@@ -43,6 +43,7 @@ export const getBusTimings = async (stop_id, formattedTime) => {
       arrival_time: timing.arrival_time,
       trip_code: timing.bus.trip_code,
       wheelchair_accessible: timing.bus.wheelchair_accessible,
+      fare: timing.bus.fare,
     }));
   } catch (error) {
     console.error('Error fetching bus timings:', error);

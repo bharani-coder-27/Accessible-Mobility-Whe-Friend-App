@@ -92,6 +92,7 @@ const seedDB = async () => {
           trip_code: route.trip_code,
           device_id: route.device_id,
           wheelchair_accessible: route.wheelchair_accessible,
+          fare: 20,
           is_active: true,
         },
       });

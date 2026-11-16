@@ -3,13 +3,14 @@ import {
   getBusNotifications,
   updateNotificationStatus,
   savePushToken,
-  getUserNotifications
+  getUserNotifications,
+  updatePayment
 } from '../models/notifyModel.js';
 
 
 // Passenger creates notification -> waiting
 export const createNotificationHandler = async (req, res) => {
-  const { bus_id, bus_stop_id, timing, message } = req.body;
+  const { bus_id, bus_stop_id, timing, message, from_lat, from_lng, dest_lat, dest_lng } = req.body;
 
   // The passenger is taken from the verified token, never the request body.
   // Trusting the body let a client book on behalf of anyone, and let a stale
@@ -22,7 +23,8 @@ export const createNotificationHandler = async (req, res) => {
 
   try {
     const notification = await createNotification(
-      parseInt(bus_id), parseInt(bus_stop_id), parseInt(user_id), timing, message
+      parseInt(bus_id), parseInt(bus_stop_id), parseInt(user_id), timing, message,
+      { from_lat, from_lng, dest_lat, dest_lng }
     );
 
     // Emit real-time update to conductors of the bus
@@ -31,6 +33,21 @@ export const createNotificationHandler = async (req, res) => {
     res.status(201).json({ message: 'Notification created', notification });
   } catch (err) {
     console.error('Create notification error:', err.message);
+    res.status(400).json({ error: err.message });
+  }
+};
+
+export const updatePaymentHandler = async (req, res) => {
+  const { notification_id, method } = req.body;
+  if (!notification_id || !['cash', 'gpay'].includes(method)) {
+    return res.status(400).json({ error: 'notification_id and a valid payment method are required' });
+  }
+
+  try {
+    const payment = await updatePayment(req.user.id, parseInt(notification_id), method);
+    res.status(200).json({ payment });
+  } catch (err) {
+    console.error('Update payment error:', err);
     res.status(400).json({ error: err.message });
   }
 };

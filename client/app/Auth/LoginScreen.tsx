@@ -119,7 +119,7 @@ export default function LoginScreen() {
         }))}
       />
 
-      <View style={{ gap: theme.spacing.lg }}>
+      <View style={{ gap: theme.spacing.lg, paddingBottom: theme.spacing.xxl }}>
         <TextField
           label={t("email")}
           icon="mail-outline"

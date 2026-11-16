@@ -4,7 +4,14 @@ import { sendPushNotification } from '../services/notificationsService.js';
 /**
  * Create a new passenger notification for a bus at a stop.
  */
-export const createNotification = async (bus_id, bus_stop_id, user_id, timing, message) => {
+export const createNotification = async (
+  bus_id,
+  bus_stop_id,
+  user_id,
+  timing,
+  message,
+  tracking = {}
+) => {
   try {
     if (!bus_id || !bus_stop_id || !user_id) {
       throw new Error('bus_id, bus_stop_id, and user_id are required');
@@ -47,13 +54,22 @@ export const createNotification = async (bus_id, bus_stop_id, user_id, timing, m
         bus_stop_id,
         user_id,
         timing: timing ?? null,
+        from_lat: tracking.from_lat ?? null,
+        from_lng: tracking.from_lng ?? null,
+        dest_lat: tracking.dest_lat ?? null,
+        dest_lng: tracking.dest_lng ?? null,
         message,
         status: 'waiting',
       },
       include: {
         bus_stop: { select: { stop_name: true } },
         user: { select: { name: true } },
+        bus: { select: { fare: true } },
       },
+    });
+
+    await prisma.payment.create({
+      data: { notification_id: notification.id, amount: notification.bus.fare },
     });
 
     return {
@@ -66,6 +82,11 @@ export const createNotification = async (bus_id, bus_stop_id, user_id, timing, m
       timing: notification.timing,
       status: notification.status,
       message: notification.message,
+      payment: { amount: notification.bus.fare, method: 'cash', status: 'paid' },
+      from_lat: notification.from_lat,
+      from_lng: notification.from_lng,
+      dest_lat: notification.dest_lat,
+      dest_lng: notification.dest_lng,
       created_at: notification.created_at,
     };
   } catch (err) {
@@ -83,6 +104,7 @@ export const getBusNotifications = async (bus_id) => {
       include: {
         bus_stop: { select: { id: true, stop_name: true } },
         user: { select: { id: true, name: true } },
+        payment: true,
       },
       orderBy: { created_at: 'desc' },
     });
@@ -97,6 +119,7 @@ export const getBusNotifications = async (bus_id) => {
       timing: n.timing,
       status: n.status,
       message: n.message,
+      payment: n.payment ?? { amount: 0, method: 'cash', status: 'paid' },
       created_at: n.created_at,
     }));
   } catch (err) {
@@ -115,6 +138,7 @@ export const updateNotificationStatus = async (notification_id, bus_id) => {
       include: {
         user: { select: { id: true, name: true, expo_token: true } },
         bus_stop: { select: { stop_name: true } },
+        payment: true,
       },
     });
 
@@ -137,6 +161,7 @@ export const updateNotificationStatus = async (notification_id, bus_id) => {
         timing: notification.timing,
         status: notification.status,
         message: notification.message,
+        payment: notification.payment ?? { amount: 0, method: 'cash', status: 'paid' },
         created_at: notification.created_at,
       };
     } else {
@@ -149,6 +174,7 @@ export const updateNotificationStatus = async (notification_id, bus_id) => {
       include: {
         bus_stop: { select: { stop_name: true } },
         user: { select: { id: true, name: true, expo_token: true } },
+        payment: true,
       },
     });
 
@@ -183,6 +209,7 @@ export const updateNotificationStatus = async (notification_id, bus_id) => {
       timing: updated.timing,
       status: updated.status,
       message: updated.message,
+      payment: updated.payment ?? { amount: 0, method: 'cash', status: 'paid' },
       created_at: updated.created_at,
     };
   } catch (err) {
@@ -235,7 +262,8 @@ export const getUserNotifications = async (user_id, limit = 50) => {
       where: { user_id, type: 'normal' },
       include: {
         bus_stop: { select: { id: true, stop_name: true } },
-        bus: { select: { id: true, name: true, trip_code: true, wheelchair_accessible: true } },
+        bus: { select: { id: true, name: true, trip_code: true, wheelchair_accessible: true, fare: true } },
+        payment: true,
       },
       orderBy: { created_at: 'desc' },
       take: limit,
@@ -252,9 +280,37 @@ export const getUserNotifications = async (user_id, limit = 50) => {
       timing: n.timing,
       status: n.status,
       message: n.message,
+      payment: n.payment ?? { amount: n.bus?.fare ?? 0, method: 'cash', status: 'paid' },
+      from_lat: n.from_lat,
+      from_lng: n.from_lng,
+      dest_lat: n.dest_lat,
+      dest_lng: n.dest_lng,
       created_at: n.created_at,
     }));
   } catch (err) {
     throw new Error(`Failed to fetch trip history: ${err.message}`);
   }
+};
+
+export const updatePayment = async (user_id, notification_id, method) => {
+  if (!['cash', 'gpay'].includes(method)) throw new Error('Payment method must be cash or gpay');
+
+  const notification = await prisma.notification.findFirst({
+    where: { id: notification_id, user_id, type: 'normal' },
+    include: { bus: { select: { fare: true } } },
+  });
+  if (!notification) throw new Error('Trip not found');
+  if (notification.status !== 'traveling') throw new Error('Payment is available after the journey starts');
+
+  return prisma.payment.upsert({
+    where: { notification_id },
+    create: {
+      notification_id,
+      amount: notification.bus.fare,
+      method,
+      status: 'paid',
+      paid_at: new Date(),
+    },
+    update: { method, status: 'paid', amount: notification.bus.fare, paid_at: new Date() },
+  });
 };

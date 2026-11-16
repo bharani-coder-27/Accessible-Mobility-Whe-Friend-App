@@ -39,6 +39,16 @@ enum TravelStatus {
   cancelled
 }
 
+enum PaymentMethod {
+  cash
+  gpay
+}
+
+enum PaymentStatus {
+  paid
+  unpaid
+}
+
 model User {
   id               Int      @id @default(autoincrement())
   name             String
@@ -68,6 +78,7 @@ model Bus {
   trip_code             String
   device_id             String   @unique
   wheelchair_accessible Boolean  @default(false)
+  fare                  Float    @default(20)
   is_active             Boolean  @default(true)
   created_at            DateTime @default(now())
   updated_at            DateTime @updatedAt
@@ -113,6 +124,10 @@ model Notification {
   bus_stop_id   Int?
   user_id       Int
   timing        String?
+  from_lat      Float?
+  from_lng      Float?
+  dest_lat      Float?
+  dest_lng      Float?
   message       String             @db.VarChar(255)
   status        NotificationStatus @default(waiting)
   type          NotificationType   @default(normal)
@@ -123,4 +138,18 @@ model Notification {
   bus      Bus      @relation(fields: [bus_id], references: [id])
   bus_stop BusStop? @relation(fields: [bus_stop_id], references: [id])
   user     User     @relation(fields: [user_id], references: [id])
+  payment  Payment?
+}
+
+model Payment {
+  id              Int           @id @default(autoincrement())
+  notification_id Int           @unique
+  amount          Float
+  method          PaymentMethod @default(cash)
+  status          PaymentStatus @default(paid)
+  paid_at         DateTime      @default(now())
+  created_at      DateTime      @default(now())
+  updated_at      DateTime      @updatedAt
+
+  notification Notification @relation(fields: [notification_id], references: [id], onDelete: Cascade)
 }

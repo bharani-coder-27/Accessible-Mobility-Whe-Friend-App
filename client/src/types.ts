@@ -14,6 +14,7 @@ export interface BusTiming {
   arrival_time: string;
   trip_code: string;
   wheelchair_accessible: boolean;
+  fare: number;
 }
 
 export interface Coordinates {
@@ -27,6 +28,7 @@ export interface PlaceSuggestion {
 }
 
 export type TripStatus = "waiting" | "traveling" | "completed";
+export type PaymentMethod = "cash" | "gpay";
 
 /** One booking in the passenger's own history. */
 export interface Trip {
@@ -41,4 +43,9 @@ export interface Trip {
   status: TripStatus;
   message: string;
   created_at: string;
+  payment: { amount: number; method: PaymentMethod; status: "paid" | "unpaid" };
+  from_lat: number | null;
+  from_lng: number | null;
+  dest_lat: number | null;
+  dest_lng: number | null;
 }

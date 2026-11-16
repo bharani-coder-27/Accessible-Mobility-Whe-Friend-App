@@ -60,7 +60,7 @@ export const Screen = ({
       />
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         {/* Kept outside the scroll view so the back control and screen title
             stay reachable however far the user has scrolled. */}
@@ -70,6 +70,7 @@ export const Screen = ({
           <ScrollView
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="on-drag"
+            automaticallyAdjustKeyboardInsets
             showsVerticalScrollIndicator={false}
             contentContainerStyle={[padding, { flexGrow: 1 }, contentStyle]}
           >
