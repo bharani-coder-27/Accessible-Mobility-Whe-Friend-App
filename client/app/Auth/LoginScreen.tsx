@@ -78,7 +78,15 @@ export default function LoginScreen() {
   };
 
   return (
-    <Screen scroll contentStyle={{ justifyContent: "center", gap: theme.spacing.xxl }}>
+    <Screen
+      scroll
+      keyboardDismissMode="none"
+      contentStyle={{
+        justifyContent: "center",
+        gap: theme.spacing.xxl,
+        paddingBottom: theme.spacing.huge,
+      }}
+    >
       <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }}>
         <BrandMark size={64} />
 

@@ -25,6 +25,8 @@ export interface ScreenProps {
   header?: ReactNode;
   /** Rendered outside the scroll area, pinned to the bottom. */
   footer?: ReactNode;
+  /** Controls whether dragging the form dismisses the keyboard. */
+  keyboardDismissMode?: 'none' | 'on-drag';
   contentStyle?: ViewStyle;
   style?: ViewStyle;
 }
@@ -43,6 +45,7 @@ export const Screen = ({
   edges = ['top', 'bottom'],
   header,
   footer,
+  keyboardDismissMode = 'on-drag',
   contentStyle,
   style,
 }: ScreenProps) => {
@@ -69,7 +72,7 @@ export const Screen = ({
         {scroll ? (
           <ScrollView
             keyboardShouldPersistTaps="handled"
-            keyboardDismissMode="on-drag"
+            keyboardDismissMode={keyboardDismissMode}
             automaticallyAdjustKeyboardInsets
             showsVerticalScrollIndicator={false}
             contentContainerStyle={[padding, { flexGrow: 1 }, contentStyle]}

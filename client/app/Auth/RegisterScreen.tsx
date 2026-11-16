@@ -169,6 +169,7 @@ export default function RegisterScreen() {
     <Screen
       scroll
       padded={false}
+      keyboardDismissMode="none"
       header={<AppBar title={t("registerTitle")} subtitle={t("registerSubtitle")} showBack />}
       contentStyle={{ paddingBottom: theme.spacing.xxxl }}
     >
