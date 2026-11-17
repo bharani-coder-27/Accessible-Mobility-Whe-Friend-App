@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { FlatList, View } from "react-native";
+import { FlatList, RefreshControl, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import Toast from "react-native-toast-message";
 
@@ -34,10 +34,39 @@ export default function NearbyStopsScreen() {
   const { t } = useLanguage();
   const theme = useTheme();
 
-  const stops = parseParam<BusStop[]>(params.stops, []);
+  const [stops, setStops] = useState(() => parseParam<BusStop[]>(params.stops, []));
   const fromAddress = (params.fromAddress as string) || "";
+  const fromCoords = parseParam<{ latitude: number; longitude: number } | null>(
+    params.fromCoords,
+    null
+  );
 
   const [loadingStopId, setLoadingStopId] = useState<number | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const refreshStops = async () => {
+    if (!fromCoords) return;
+    setRefreshing(true);
+    try {
+      const { data } = await api.get<BusStop[]>("/buses/bus_stops", {
+        params: {
+          latitude: fromCoords.latitude,
+          longitude: fromCoords.longitude,
+          radius: 5000,
+          city: "Coimbatore",
+        },
+      });
+      setStops(Array.isArray(data) ? data : []);
+    } catch (error) {
+      Toast.show({
+        type: "error",
+        text1: t("somethingWentWrong"),
+        text2: errorMessage(error, t("checkConnection")),
+      });
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   const openTimings = async (stop: BusStop) => {
     setLoadingStopId(stop.id);
@@ -86,6 +115,13 @@ export default function NearbyStopsScreen() {
         keyExtractor={(item) => String(item.id)}
         ItemSeparatorComponent={() => <Divider inset={theme.spacing.xl} />}
         contentContainerStyle={{ paddingBottom: theme.spacing.xxxl }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={refreshStops}
+            tintColor={theme.colors.primary}
+          />
+        }
         ListEmptyComponent={
           <EmptyState icon="map-outline" title={t("noStops")} description={t("noStopsDesc")} />
         }
