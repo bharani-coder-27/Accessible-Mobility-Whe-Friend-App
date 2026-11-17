@@ -121,6 +121,10 @@ export const PassengerProvider = ({ children }: { children: ReactNode }) => {
             bus_id: passenger.bus_id,
             user_id: passenger.user_id,
           });
+          await api.put("/notify/markseen", {
+            notification_id: id,
+            bus_id: passenger.bus_id,
+          });
 
           setPassengers((prev) =>
             prev.map((item) => (item.id === id ? { ...item, status: "completed" } : item))
@@ -149,7 +153,10 @@ export const PassengerProvider = ({ children }: { children: ReactNode }) => {
     const socket = io(getSocketUrl(), { transports: ["websocket"] });
     socketRef.current = socket;
 
-    const joinRoom = () => socket.emit("joinBusRoom", { bus_id: busId });
+    const joinRoom = () => {
+      socket.emit("joinBusRoom", { bus_id: busId });
+      fetchPassengers();
+    };
 
     // Re-join on every connect, not just the first: after a dropped
     // connection the server has forgotten the room membership, and without
@@ -176,7 +183,7 @@ export const PassengerProvider = ({ children }: { children: ReactNode }) => {
       socket.disconnect();
       socketRef.current = null;
     };
-  }, [busId, t]);
+  }, [busId, fetchPassengers, t]);
 
   useEffect(() => {
     fetchPassengers();
