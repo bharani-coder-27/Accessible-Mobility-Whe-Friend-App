@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from "react";
-import { Alert, FlatList, Linking, RefreshControl, View } from "react-native";
+import { Alert, Linking, RefreshControl, SectionList, View } from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
 import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
@@ -20,6 +20,7 @@ import {
   ListRow,
   Screen,
   SkeletonRow,
+  Text,
 } from "../../src/components/ui";
 
 const statusTone: Record<TripStatus, BadgeTone> = {
@@ -33,6 +34,9 @@ const statusIcon: Record<TripStatus, "hourglass-outline" | "bus" | "checkmark-ci
   traveling: "bus",
   completed: "checkmark-circle",
 };
+
+const paymentFor = (trip: Trip) =>
+  trip.payment ?? { amount: 0, method: "cash" as const, status: "paid" as const };
 
 export default function TripsScreen() {
   const { user } = React.useContext(AuthContext);
@@ -89,6 +93,7 @@ export default function TripsScreen() {
 
   const downloadReceipt = async (trip: Trip) => {
     setReceiptId(trip.id);
+    const payment = paymentFor(trip);
     const escapeHtml = (value: string) =>
       value.replace(/[&<>"']/g, (character) => ({
         "&": "&amp;",
@@ -110,9 +115,9 @@ export default function TripsScreen() {
             <p>Route: ${escapeHtml(trip.bus_stop_name ?? "-")}</p>
             <p>Trip code: ${escapeHtml(trip.trip_code ?? "-")}</p>
             <p>Payment method: ${escapeHtml(
-              trip.payment.method === "gpay" ? t("paidViaGPay") : t("paidInCash")
+              payment.method === "gpay" ? t("paidViaGPay") : t("paidInCash")
             )}</p>
-            <h3>Fare: ₹${trip.payment.amount.toFixed(2)}</h3>
+            <h3>Fare: ₹${payment.amount.toFixed(2)}</h3>
             <p>Thank you for travelling with Whe Friend.</p>
           </body>
         </html>`;
@@ -130,7 +135,7 @@ export default function TripsScreen() {
   };
 
   const payWithGPay = async (trip: Trip) => {
-    const amount = trip.payment.amount.toFixed(2);
+    const amount = paymentFor(trip).amount.toFixed(2);
     const url = `tez://upi/pay?am=${encodeURIComponent(amount)}&cu=INR&tn=${encodeURIComponent(
       trip.bus_name ?? t("busesTitle")
     )}`;
@@ -151,7 +156,15 @@ export default function TripsScreen() {
   };
 
   const openTracking = (trip: Trip) => {
-    if (trip.status !== "traveling") return;
+    if (
+      trip.status !== "traveling" ||
+      trip.from_lat == null ||
+      trip.from_lng == null ||
+      trip.dest_lat == null ||
+      trip.dest_lng == null
+    ) {
+      return;
+    }
     router.push({
       pathname: "/Passenger/TrackingScreen",
       params: {
@@ -165,6 +178,11 @@ export default function TripsScreen() {
     });
   };
 
+  const sections = [
+    { title: t("currentTrips"), data: trips.filter((trip) => trip.status !== "completed") },
+    { title: t("completedTrips"), data: trips.filter((trip) => trip.status === "completed") },
+  ];
+
   return (
     <Screen padded={false} edges={["top"]}>
       <AppBar title={t("tripsTitle")} />
@@ -176,10 +194,19 @@ export default function TripsScreen() {
           <SkeletonRow />
         </View>
       ) : (
-        <FlatList
-          data={trips}
+        <SectionList
+          sections={sections}
           keyExtractor={(item) => String(item.id)}
-          ItemSeparatorComponent={() => <Divider inset={theme.spacing.xl} />}
+          SectionSeparatorComponent={() => <Divider inset={theme.spacing.xl} />}
+          renderSectionHeader={({ section }) => (
+            <Text
+              variant="footnote"
+              weight="semibold"
+              style={{ paddingHorizontal: theme.spacing.xl, paddingTop: theme.spacing.lg }}
+            >
+              {section.title}
+            </Text>
+          )}
           contentContainerStyle={{ paddingBottom: theme.spacing.xxxl, flexGrow: 1 }}
           refreshControl={
             <RefreshControl
@@ -205,73 +232,101 @@ export default function TripsScreen() {
               <EmptyState icon="time-outline" title={t("noTrips")} description={t("noTripsDesc")} />
             )
           }
-          renderItem={({ item }) => (
-            <View>
-              <ListRow
-                icon="bus"
-                title={item.bus_name ?? t("busesTitle")}
-                subtitle={[
-                  item.bus_stop_name ? t("boardingAt", { stop: item.bus_stop_name }) : null,
-                  item.timing ? formatTime(item.timing) : null,
-                  t("fare", { amount: item.payment.amount.toFixed(2) }),
-                ]
-                  .filter(Boolean)
-                  .join(" · ")}
-                onPress={item.status === "traveling" ? () => openTracking(item) : undefined}
-                hint={item.status === "traveling" ? t("viewTracking") : undefined}
-                accessibilityLabel={[
-                  item.bus_name ?? t("busesTitle"),
-                  item.bus_stop_name ? t("boardingAt", { stop: item.bus_stop_name }) : "",
-                  statusLabel(item.status),
-                  item.payment.method === "gpay" ? t("paidViaGPay") : t("paidInCash"),
-                ]
-                  .filter(Boolean)
-                  .join(". ")}
-                showChevron={item.status === "traveling"}
-                trailing={
-                  <Badge
-                    label={statusLabel(item.status)}
-                    tone={statusTone[item.status]}
-                    icon={statusIcon[item.status]}
-                  />
-                }
-              />
-              {item.status === "traveling" ? (
-                <View style={{ paddingHorizontal: theme.spacing.xl, paddingBottom: theme.spacing.md, gap: theme.spacing.sm }}>
-                  <Badge
-                    label={item.payment.method === "gpay" ? t("paidViaGPay") : t("paidInCash")}
-                    tone="success"
-                    icon="checkmark-circle"
-                  />
-                  <Button
-                    label={t("payWithGPay")}
-                    icon="card-outline"
-                    size="sm"
-                    loading={payingId === item.id}
-                    onPress={() => payWithGPay(item)}
-                  />
-                  <Button
-                    label={t("paidInCash")}
-                    icon="cash-outline"
-                    variant="outline"
-                    size="sm"
-                    loading={payingId === item.id}
-                    onPress={() => updatePayment(item, "cash")}
-                  />
-                  {item.payment.status === "paid" ? (
-                    <Button
-                      label={t("downloadReceipt")}
-                      icon="download-outline"
-                      variant="ghost"
-                      size="sm"
-                      loading={receiptId === item.id}
-                      onPress={() => downloadReceipt(item)}
+          renderItem={({ item }) => {
+            const payment = paymentFor(item);
+            const completed = item.status === "completed";
+            const canTrack =
+              item.status === "traveling" &&
+              item.from_lat != null &&
+              item.from_lng != null &&
+              item.dest_lat != null &&
+              item.dest_lng != null;
+            return (
+              <View>
+                <ListRow
+                  icon="bus"
+                  title={item.bus_name ?? t("busesTitle")}
+                  subtitle={
+                    completed
+                      ? item.bus_stop_name
+                        ? t("boardingAt", { stop: item.bus_stop_name })
+                        : t("statusCompleted")
+                      : [
+                          item.bus_stop_name ? t("boardingAt", { stop: item.bus_stop_name }) : null,
+                          item.timing ? formatTime(item.timing) : null,
+                          t("fare", { amount: payment.amount.toFixed(2) }),
+                        ]
+                          .filter(Boolean)
+                          .join(" · ")
+                  }
+                  onPress={canTrack ? () => openTracking(item) : undefined}
+                  hint={canTrack ? t("viewTracking") : undefined}
+                  accessibilityLabel={[
+                    item.bus_name ?? t("busesTitle"),
+                    item.bus_stop_name ? t("boardingAt", { stop: item.bus_stop_name }) : "",
+                    statusLabel(item.status),
+                    payment.method === "gpay" ? t("paidViaGPay") : t("paidInCash"),
+                  ]
+                    .filter(Boolean)
+                    .join(". ")}
+                  showChevron={canTrack}
+                  trailing={
+                    <Badge
+                      label={statusLabel(item.status)}
+                      tone={statusTone[item.status]}
+                      icon={statusIcon[item.status]}
                     />
-                  ) : null}
-                </View>
-              ) : null}
-            </View>
-          )}
+                  }
+                />
+                {item.status === "traveling" ? (
+                  <View
+                    style={{
+                      paddingHorizontal: theme.spacing.xl,
+                      paddingBottom: theme.spacing.md,
+                      gap: theme.spacing.sm,
+                    }}
+                  >
+                    <Badge
+                      label={
+                        payment.status !== "paid"
+                          ? t("notPaid")
+                          : payment.method === "gpay"
+                            ? t("paidViaGPay")
+                            : t("paidInCash")
+                      }
+                      tone="success"
+                      icon="checkmark-circle"
+                    />
+                    <Button
+                      label={t("payWithGPay")}
+                      icon="card-outline"
+                      size="sm"
+                      loading={payingId === item.id}
+                      onPress={() => payWithGPay(item)}
+                    />
+                    <Button
+                      label={t("paidInCash")}
+                      icon="cash-outline"
+                      variant="outline"
+                      size="sm"
+                      loading={payingId === item.id}
+                      onPress={() => updatePayment(item, "cash")}
+                    />
+                    {payment.status === "paid" ? (
+                      <Button
+                        label={t("downloadReceipt")}
+                        icon="download-outline"
+                        variant="ghost"
+                        size="sm"
+                        loading={receiptId === item.id}
+                        onPress={() => downloadReceipt(item)}
+                      />
+                    ) : null}
+                  </View>
+                ) : null}
+              </View>
+            );
+          }}
         />
       )}
     </Screen>

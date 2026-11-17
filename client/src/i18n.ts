@@ -119,6 +119,8 @@ const en = {
 
   // Passenger — trips
   tripsTitle: "My trips",
+  currentTrips: "Current",
+  completedTrips: "Completed",
   noTrips: "No trips yet",
   noTripsDesc:
     "Once you tell a conductor you are waiting, your trips will appear here.",
@@ -327,6 +329,8 @@ const ta: Dict = {
     "இந்த வழித்தடத்தைக் கணக்கிட முடியவில்லை. சேரும் இடத்தை மீண்டும் தேர்ந்தெடுக்கவும்.",
 
   tripsTitle: "எனது பயணங்கள்",
+  currentTrips: "தற்போதையவை",
+  completedTrips: "முடிந்தவை",
   noTrips: "இதுவரை பயணங்கள் இல்லை",
   noTripsDesc:
     "நீங்கள் காத்திருப்பதை நடத்துநரிடம் தெரிவித்தவுடன், உங்கள் பயணங்கள் இங்கே தோன்றும்.",
@@ -522,6 +526,8 @@ const hi: Dict = {
   invalidRoute: "हम यह मार्ग नहीं निकाल सके। कृपया गंतव्य फिर चुनें।",
 
   tripsTitle: "मेरी यात्राएँ",
+  currentTrips: "वर्तमान",
+  completedTrips: "पूरी हुई",
   noTrips: "अभी कोई यात्रा नहीं",
   noTripsDesc:
     "जब आप किसी कंडक्टर को बताएंगे कि आप इंतज़ार कर रहे हैं, आपकी यात्राएँ यहाँ दिखेंगी।",
